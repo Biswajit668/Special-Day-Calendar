@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Google AI Studio App</title>
+    <script id="patch-fetch-getter">
+      (function() {
+        try {
+          var storedFetch = window.fetch;
+
+          function defineFetchOn(obj) {
+            if (!obj) return;
+            Object.defineProperty(obj, 'fetch', {
+              get: function() {
+                return storedFetch;
+              },
+              set: function(val) {
+                storedFetch = val;
+              },
+              configurable: true,
+              enumerable: true
+            });
+          }
+
+          // Try patching Window.prototype (where fetch usually resides)
+          try {
+            defineFetchOn(Window.prototype);
+          } catch (e) {
+            console.warn("Failed to patch Window.prototype.fetch:", e);
+          }
+
+          // Try patching window directly (for environments where fetch is an own property of window)
+          try {
+            defineFetchOn(window);
+          } catch (e) {
+            console.warn("Failed to patch window.fetch:", e);
+          }
+        } catch (err) {
+          console.error("Failed to inject fetch patches:", err);
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

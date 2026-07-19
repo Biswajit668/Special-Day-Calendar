@@ -1,0 +1,92 @@
+{
+  "entities": {
+    "SpecialDayEvent": {
+      "title": "SpecialDayEvent",
+      "description": "A custom special day or holiday added by the administrator",
+      "type": "object",
+      "properties": {
+        "titleBn": {
+          "type": "string",
+          "description": "Bengali title of the special day"
+        },
+        "titleEn": {
+          "type": "string",
+          "description": "English title of the special day"
+        },
+        "date": {
+          "type": "string",
+          "description": "Date formatted as MM-DD (or YYYY-MM-DD)"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "national",
+            "international",
+            "west_bengal",
+            "freedom_fighter",
+            "poet",
+            "writer",
+            "scientist",
+            "leader",
+            "sports",
+            "religious",
+            "history"
+          ],
+          "description": "Category of the event"
+        },
+        "descriptionBn": {
+          "type": "string",
+          "description": "Bengali description and context of the event"
+        },
+        "descriptionEn": {
+          "type": "string",
+          "description": "English description and context of the event"
+        },
+        "wishesBn": {
+          "type": "array",
+          "description": "List of Bengali greetings or wishes"
+        },
+        "wishesEn": {
+          "type": "array",
+          "description": "List of English greetings or wishes"
+        },
+        "fbCaption": {
+          "type": "string",
+          "description": "Pre-filled Facebook caption"
+        },
+        "waMessage": {
+          "type": "string",
+          "description": "Pre-filled WhatsApp message"
+        },
+        "hashtags": {
+          "type": "array",
+          "description": "List of associated tags/hashtags"
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "User identifier who created the event"
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "Optional custom card design or background image URL"
+        }
+      },
+      "required": [
+        "titleBn",
+        "titleEn",
+        "date",
+        "category",
+        "descriptionBn",
+        "descriptionEn"
+      ]
+    }
+  },
+  "firestore": {
+    "special_days/{eventId}": {
+      "schema": {
+        "$ref": "#/entities/SpecialDayEvent"
+      },
+      "description": "Collection of all custom special day events added by admins"
+    }
+  }
+}

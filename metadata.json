@@ -1,0 +1,6 @@
+{
+  "name": "Special Day Calendar",
+  "description": "বিশেষ দিন ক্যালেন্ডার - এক জায়গায় প্রতিদিনের সব বিশেষ দিন, শুভেচ্ছা ও তথ্য।",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

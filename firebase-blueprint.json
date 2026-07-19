@@ -79,6 +79,25 @@
         "descriptionBn",
         "descriptionEn"
       ]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Logged-in user profile with persistent preferences and favorites",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "favorites": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of special day event IDs favorited by this user"
+        },
+        "lastLogin": { "type": "string" },
+        "prefLanguage": { "type": "string" }
+      },
+      "required": ["uid"]
     }
   },
   "firestore": {
@@ -87,6 +106,12 @@
         "$ref": "#/entities/SpecialDayEvent"
       },
       "description": "Collection of all custom special day events added by admins"
+    },
+    "users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "User account documents stored by their login uid"
     }
   }
 }

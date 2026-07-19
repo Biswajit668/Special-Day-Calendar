@@ -39,6 +39,7 @@ import {
   where,
   deleteDoc,
   doc,
+  setDoc,
   User,
   OperationType,
   handleFirestoreError
@@ -91,26 +92,87 @@ export default function App() {
         const adminEmails = ["biswajitnaskar668@gmail.com"];
         const emailLower = currentUser.email?.toLowerCase() || "";
         setIsAdmin(adminEmails.includes(emailLower));
-
-        // If logged in, we sync their favorites from local or firestore
-        // Let's load user favorites from localStorage
-        const stored = localStorage.getItem(`favs_${currentUser.uid}`);
-        if (stored) {
-          setFavorites(JSON.parse(stored));
-        }
       } else {
         setIsAdmin(false);
-        // Logged out
-        const stored = localStorage.getItem("favs_guest");
-        if (stored) {
-          setFavorites(JSON.parse(stored));
-        }
       }
     });
     return () => unsubscribe();
   }, []);
 
-  // 2. Load and Sync Custom Special Days from Firestore in Real-Time!
+  // 2. Sync User Document and Favorites in Firestore (Real-Time)
+  useEffect(() => {
+    if (!user) {
+      // Guest Mode: load favorites from localStorage
+      const stored = localStorage.getItem("favs_guest");
+      if (stored) {
+        setFavorites(JSON.parse(stored));
+      } else {
+        setFavorites([]);
+      }
+      return;
+    }
+
+    // Authenticated Mode: Read/Write from users/{uid}
+    const userDocRef = doc(db, "users", user.uid);
+    
+    const unsubscribe = onSnapshot(userDocRef, async (docSnap) => {
+      if (docSnap.exists()) {
+        const userData = docSnap.data();
+        if (userData && Array.isArray(userData.favorites)) {
+          setFavorites(userData.favorites);
+          // Keep localStorage in sync as backup
+          localStorage.setItem(`favs_${user.uid}`, JSON.stringify(userData.favorites));
+        }
+      } else {
+        // Document does not exist in Firestore yet (first login)
+        // Retrieve any existing local favorites to migrate to the cloud
+        const localFavsStored = localStorage.getItem(`favs_${user.uid}`) || localStorage.getItem("favs_guest") || "[]";
+        let localFavs: string[] = [];
+        try {
+          localFavs = JSON.parse(localFavsStored);
+          if (!Array.isArray(localFavs)) localFavs = [];
+        } catch (e) {
+          localFavs = [];
+        }
+
+        try {
+          await setDoc(userDocRef, {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName,
+            photoURL: user.photoURL,
+            favorites: localFavs,
+            lastLogin: new Date().toISOString(),
+            prefLanguage: language
+          });
+          setFavorites(localFavs);
+        } catch (err) {
+          console.error("Error creating user document in Firestore on login: ", err);
+        }
+      }
+    }, (error) => {
+      console.error("Error listening to user document: ", error);
+    });
+
+    // Also update login timestamp
+    const updateLastLogin = async () => {
+      try {
+        await setDoc(userDocRef, {
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+          lastLogin: new Date().toISOString(),
+        }, { merge: true });
+      } catch (e) {
+        console.warn("Failed to update lastLogin timestamp: ", e);
+      }
+    };
+    updateLastLogin();
+
+    return () => unsubscribe();
+  }, [user, language]);
+
+  // 3. Load and Sync Custom Special Days from Firestore in Real-Time!
   useEffect(() => {
     const q = query(collection(db, "special_days"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -123,16 +185,8 @@ export default function App() {
       handleFirestoreError(error, OperationType.LIST, "special_days");
     });
 
-    // Load initial Guest favorites
-    if (!user) {
-      const stored = localStorage.getItem("favs_guest");
-      if (stored) {
-        setFavorites(JSON.parse(stored));
-      }
-    }
-
     return () => unsubscribe();
-  }, [user]);
+  }, []);
 
   // 3. Merge default events and custom Firestore events
   useEffect(() => {
@@ -190,7 +244,7 @@ export default function App() {
   };
 
   // Toggle Favorite
-  const handleToggleFavorite = (eventId: string) => {
+  const handleToggleFavorite = async (eventId: string) => {
     let updated: string[];
     if (favorites.includes(eventId)) {
       updated = favorites.filter((id) => id !== eventId);
@@ -199,9 +253,21 @@ export default function App() {
     }
     setFavorites(updated);
 
-    // Save to localStorage based on login status
-    const storageKey = user ? `favs_${user.uid}` : "favs_guest";
-    localStorage.setItem(storageKey, JSON.stringify(updated));
+    if (user) {
+      // Save to Firestore under users/{uid}
+      try {
+        const userDocRef = doc(db, "users", user.uid);
+        await setDoc(userDocRef, {
+          favorites: updated
+        }, { merge: true });
+        localStorage.setItem(`favs_${user.uid}`, JSON.stringify(updated));
+      } catch (error) {
+        console.error("Error saving favorites to Firestore: ", error);
+      }
+    } else {
+      // Save to localStorage for guest
+      localStorage.setItem("favs_guest", JSON.stringify(updated));
+    }
   };
 
   // Delete Custom Special Day from Firestore

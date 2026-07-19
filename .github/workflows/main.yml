@@ -21,8 +21,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # আপনার ফাইলগুলো যে ফোল্ডারে আছে সেই নাম দিন
-          path: './Special-Day-Calendar'
+          path: '.'
 
       - name: Deploy to GitHub Pages
         id: deployment

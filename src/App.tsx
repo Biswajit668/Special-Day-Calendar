@@ -23,7 +23,7 @@ import { NotificationFeed } from "./components/NotificationFeed";
 import { FavoriteList } from "./components/FavoriteList";
 import { AdminPanel } from "./components/AdminPanel";
 import { LanguageSelectionModal } from "./components/LanguageSelectionModal";
-import { Language, t, getEventTitle } from "./lib/translations";
+import { Language, t, getEventTitle, getEventDescription } from "./lib/translations";
 
 // Firebase Imports
 import { 
@@ -253,20 +253,20 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-natural-bg text-natural-text flex flex-col font-sans selection:bg-natural-accent/20 selection:text-natural-heading">
+    <div className="min-h-screen bg-natural-bg text-natural-text flex flex-col font-sans selection:bg-natural-accent/20 selection:text-natural-heading pb-16 lg:pb-0">
       
       {/* 1. Header & Navigation */}
-      <header className="sticky top-0 z-40 bg-natural-aside/90 backdrop-blur-md border-b border-natural-border px-6 py-4 text-natural-text">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-40 bg-natural-aside/90 backdrop-blur-md border-b border-natural-border px-3.5 sm:px-6 py-3 sm:py-4 text-natural-text">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
           
           {/* Logo Title */}
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">📅</span>
-            <div className="flex flex-col">
-              <h1 id="app-title-bn" className="text-lg md:text-xl font-extrabold text-natural-heading tracking-tight leading-none">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+            <span className="text-xl sm:text-2xl shrink-0">📅</span>
+            <div className="flex flex-col min-w-0">
+              <h1 id="app-title-bn" className="text-sm sm:text-base md:text-xl font-extrabold text-natural-heading tracking-tight leading-none truncate">
                 {t("appTitle", language)}
               </h1>
-              <span id="app-slogan" className="text-[10px] md:text-xs text-natural-accent font-semibold mt-1">
+              <span id="app-slogan" className="text-[8px] sm:text-[10px] md:text-xs text-natural-accent font-semibold mt-1 truncate">
                 {t("appSlogan", language)}
               </span>
             </div>
@@ -340,31 +340,31 @@ export default function App() {
           </nav>
 
           {/* User / Authentication Area */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Language Selector Dropdown */}
             <div className="relative">
               <button
                 onClick={() => setShowLanguageModal(true)}
-                className="p-2 border border-natural-border bg-white hover:bg-natural-aside/40 rounded-xl text-xs font-bold text-natural-text flex items-center gap-1.5 cursor-pointer shadow-sm"
+                className="p-1.5 sm:p-2 border border-natural-border bg-white hover:bg-natural-aside/40 rounded-xl text-xs font-bold text-natural-text flex items-center gap-1 sm:gap-1.5 cursor-pointer shadow-sm"
                 title="Change Language"
               >
-                <Globe className="w-4 h-4 text-natural-accent" />
+                <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-natural-accent" />
                 <span className="hidden sm:inline">{language === "bn" ? "বাংলা" : language === "hi" ? "हिन्दी" : "English"}</span>
               </button>
             </div>
 
             {user ? (
-              <div className="flex items-center gap-2 border border-natural-border p-1.5 pr-3 bg-white rounded-2xl">
+              <div className="flex items-center gap-1 sm:gap-2 border border-natural-border p-1 bg-white rounded-2xl">
                 {user.photoURL ? (
                   <img
                     referrerPolicy="no-referrer"
                     src={user.photoURL}
                     alt={user.displayName || "User"}
-                    className="w-7 h-7 rounded-full shadow-sm"
+                    className="w-6 h-6 sm:w-7 sm:h-7 rounded-full shadow-sm"
                   />
                 ) : (
-                  <div className="w-7 h-7 bg-natural-accent/10 text-natural-accent rounded-full flex items-center justify-center font-bold text-xs">
-                    {user.displayName?.charAt(0) || <UserIcon className="w-4 h-4" />}
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 bg-natural-accent/10 text-natural-accent rounded-full flex items-center justify-center font-bold text-xs">
+                    {user.displayName?.charAt(0) || <UserIcon className="w-3.5 h-3.5" />}
                   </div>
                 )}
                 <div className="hidden md:flex flex-col text-left">
@@ -377,17 +377,18 @@ export default function App() {
                   className="p-1 text-natural-text/40 hover:text-red-600 rounded-lg cursor-pointer transition-colors"
                   title="লগআউট করুন"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <LogOut className="w-3.5 h-3.5" />
                 </button>
               </div>
             ) : (
               <button
                 id="auth-login-btn"
                 onClick={handleGoogleLogin}
-                className="flex items-center gap-1.5 px-4 py-2 bg-natural-primary hover:bg-natural-primary/90 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer shrink-0"
+                className="flex items-center gap-1 px-2.5 sm:px-4 py-1.5 sm:py-2 bg-natural-primary hover:bg-natural-primary/90 text-white rounded-xl text-[10px] sm:text-xs font-bold shadow-sm transition-all cursor-pointer shrink-0"
               >
-                <UserIcon className="w-3.5 h-3.5" />
-                <span>{t("googleLogin", language)}</span>
+                <UserIcon className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
+                <span className="hidden sm:inline">{t("googleLogin", language)}</span>
+                <span className="sm:hidden">{language === "bn" ? "লগইন" : language === "hi" ? "लॉगिन" : "Login"}</span>
               </button>
             )}
 
@@ -395,7 +396,7 @@ export default function App() {
             <button
               id="mobile-menu-toggle"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 text-natural-text hover:bg-white/50 rounded-xl cursor-pointer"
+              className="lg:hidden p-1.5 sm:p-2 text-natural-text hover:bg-white/50 rounded-xl cursor-pointer"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -502,7 +503,7 @@ export default function App() {
                     {getEventTitle(e, language)}
                   </h3>
                   <p className="text-xs text-natural-text/80 truncate-3-lines leading-relaxed font-medium">
-                    {language === "bn" ? e.descriptionBn : language === "hi" ? (e.descriptionBn) : e.descriptionEn}
+                    {getEventDescription(e, language)}
                   </p>
                 </button>
               ))}
@@ -574,6 +575,7 @@ export default function App() {
             onSelectDate={setSelectedDate}
             onSelectEvent={setActiveEvent}
             setActiveTab={setActiveTab}
+            language={language}
           />
         )}
 
@@ -586,6 +588,7 @@ export default function App() {
             onSelectDate={setSelectedDate}
             onSelectEvent={setActiveEvent}
             setActiveTab={setActiveTab}
+            language={language}
           />
         )}
 
@@ -630,6 +633,73 @@ export default function App() {
         onSelectLanguage={handleSelectLanguage}
         currentLanguage={language}
       />
+
+      {/* Sticky Bottom Navigation Bar for Mobile */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-natural-border/80 px-4 py-2 lg:hidden flex items-center justify-around shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
+        <button
+          onClick={() => {
+            setActiveTab("calendar");
+            setMobileMenuOpen(false);
+          }}
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all cursor-pointer ${
+            activeTab === "calendar" ? "text-natural-accent font-bold" : "text-natural-text/60"
+          }`}
+        >
+          <CalendarIcon className="w-5 h-5 animate-pulse" />
+          <span className="text-[10px] font-bold tracking-tight">
+            {language === "bn" ? "ক্যালেন্ডার" : language === "hi" ? "कैलेंडर" : "Calendar"}
+          </span>
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab("notifications");
+            setMobileMenuOpen(false);
+          }}
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all cursor-pointer relative ${
+            activeTab === "notifications" ? "text-natural-accent font-bold" : "text-natural-text/60"
+          }`}
+        >
+          <Bell className="w-5 h-5" />
+          <span className="text-[10px] font-bold tracking-tight">
+            {language === "bn" ? "নোটিফিকেশন" : language === "hi" ? "सूचना" : "Alerts"}
+          </span>
+          {getNotificationCount() > 0 && (
+            <span className="absolute top-1 right-2.5 bg-natural-accent text-white w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black animate-pulse">
+              {getNotificationCount()}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab("favorites");
+            setMobileMenuOpen(false);
+          }}
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all cursor-pointer ${
+            activeTab === "favorites" ? "text-natural-accent font-bold" : "text-natural-text/60"
+          }`}
+        >
+          <Heart className="w-5 h-5" />
+          <span className="text-[10px] font-bold tracking-tight">
+            {language === "bn" ? "প্রিয় তালিকা" : language === "hi" ? "पसंदीदा" : "Favorites"}
+          </span>
+        </button>
+        {isAdmin && (
+          <button
+            onClick={() => {
+              setActiveTab("admin");
+              setMobileMenuOpen(false);
+            }}
+            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all cursor-pointer ${
+              activeTab === "admin" ? "text-natural-accent font-bold" : "text-natural-text/60"
+            }`}
+          >
+            <PlusCircle className="w-5 h-5" />
+            <span className="text-[10px] font-bold tracking-tight">
+              {language === "bn" ? "এডমিন" : language === "hi" ? "एडमिन" : "Admin"}
+            </span>
+          </button>
+        )}
+      </div>
 
     </div>
   );

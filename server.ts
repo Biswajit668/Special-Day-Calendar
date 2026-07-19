@@ -34,7 +34,7 @@ app.post("/api/gemini/generate-wishes", async (req, res) => {
 
     const client = getGeminiClient();
     const prompt = `
-      You are an expert copywriter fluent in Bengali and English, specializing in writing festival greetings and wishes.
+      You are an expert copywriter fluent in Bengali, English, and Hindi, specializing in writing festival greetings and wishes.
       The user is celebrating or commemorating the following special day:
       Event Title: "${eventTitle}"
       Category: "${category || "general"}"
@@ -43,7 +43,8 @@ app.post("/api/gemini/generate-wishes", async (req, res) => {
       You MUST respond ONLY with a JSON object containing the exact following keys:
       - "wishesBn": Array of 3 beautiful, highly respectful, and touching wishes/messages in Bengali.
       - "wishesEn": Array of 3 beautiful wishes/messages in English.
-      - "fbCaption": A catchy Facebook caption (with appropriate emojis) mixing Bengali and English if appropriate, or purely Bengali.
+      - "wishesHi": Array of 3 beautiful wishes/messages in Hindi.
+      - "fbCaption": A catchy Facebook caption (with appropriate emojis) mixing Bengali/Hindi/English as appropriate.
       - "waMessage": A warm, neatly spaced WhatsApp message for sharing with family and friends.
       - "xPost": A concise Twitter/X post under 250 characters with appropriate hashtags.
       - "hashtags": Array of 4-5 relevant trending hashtags (no '#' prefix in the array items).
@@ -87,6 +88,7 @@ app.post("/api/gemini/generate-poster-concept", async (req, res) => {
       You MUST respond ONLY with a JSON object containing the exact following keys:
       - "quoteBn": A deep, meaningful, or spiritual quote related to the day in Bengali (max 100 characters).
       - "quoteEn": Same quote translated or adapted in English (max 100 characters).
+      - "quoteHi": Same quote translated or adapted in Hindi (max 100 characters).
       - "bgType": "gradient" or "solid" or "ambient"
       - "bgStartColor": Hex code of a beautiful, premium starting color (e.g., "#1e1b4b" or "#fff7ed")
       - "bgEndColor": Hex code of a beautiful ending color (e.g., "#311042" or "#fed7aa")

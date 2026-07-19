@@ -11,7 +11,8 @@ import {
   Menu,
   X,
   PlusCircle,
-  HelpCircle
+  HelpCircle,
+  Globe
 } from "lucide-react";
 import { defaultEvents } from "./data/defaultEvents";
 import { SpecialDayEvent, UserProfile } from "./types";
@@ -21,6 +22,8 @@ import { PosterGenerator } from "./components/PosterGenerator";
 import { NotificationFeed } from "./components/NotificationFeed";
 import { FavoriteList } from "./components/FavoriteList";
 import { AdminPanel } from "./components/AdminPanel";
+import { LanguageSelectionModal } from "./components/LanguageSelectionModal";
+import { Language, t, getEventTitle } from "./lib/translations";
 
 // Firebase Imports
 import { 
@@ -47,6 +50,25 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Language Setup
+  const [language, setLanguage] = useState<Language>(() => {
+    const stored = localStorage.getItem("pref_lang") as Language | null;
+    return stored || "bn";
+  });
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("pref_lang");
+    if (!stored) {
+      setShowLanguageModal(true);
+    }
+  }, []);
+
+  const handleSelectLanguage = (lang: Language) => {
+    setLanguage(lang);
+    localStorage.setItem("pref_lang", lang);
+  };
+
   // Core App Data
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [customEvents, setCustomEvents] = useState<SpecialDayEvent[]>([]);
@@ -55,7 +77,7 @@ export default function App() {
 
   // Auth & Profile
   const [user, setUser] = useState<User | null>(null);
-  const [isAdmin, setIsAdmin] = useState(true); // Default true for frictionless testing/admin capabilities!
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Favorites (Syncing local + Firestore soon)
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -65,6 +87,11 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
+        // Verify admin emails
+        const adminEmails = ["biswajitnaskar668@gmail.com"];
+        const emailLower = currentUser.email?.toLowerCase() || "";
+        setIsAdmin(adminEmails.includes(emailLower));
+
         // If logged in, we sync their favorites from local or firestore
         // Let's load user favorites from localStorage
         const stored = localStorage.getItem(`favs_${currentUser.uid}`);
@@ -72,6 +99,7 @@ export default function App() {
           setFavorites(JSON.parse(stored));
         }
       } else {
+        setIsAdmin(false);
         // Logged out
         const stored = localStorage.getItem("favs_guest");
         if (stored) {
@@ -155,6 +183,7 @@ export default function App() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
+      setActiveTab("calendar");
     } catch (e) {
       console.error("Auth logout failure: ", e);
     }
@@ -235,10 +264,10 @@ export default function App() {
             <span className="text-2xl">📅</span>
             <div className="flex flex-col">
               <h1 id="app-title-bn" className="text-lg md:text-xl font-extrabold text-natural-heading tracking-tight leading-none">
-                विशेष दिन ক্যালেন্ডার
+                {t("appTitle", language)}
               </h1>
               <span id="app-slogan" className="text-[10px] md:text-xs text-natural-accent font-semibold mt-1">
-                এক জায়গায় প্রতিদিনের সব বিশেষ দিন, শুভেচ্ছা ও তথ্য।
+                {t("appSlogan", language)}
               </span>
             </div>
           </div>
@@ -249,7 +278,7 @@ export default function App() {
             <input
               id="desktop-search-input"
               type="text"
-              placeholder="রবীন্দ্রনাথ, নজরুল, পরিবেশ দিবস..."
+              placeholder={t("searchPlaceholder", language)}
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -269,7 +298,7 @@ export default function App() {
               }`}
             >
               <CalendarIcon className="w-4 h-4" />
-              <span>ক্যালেন্ডার ভিউ</span>
+              <span>{t("navCalendar", language)}</span>
             </button>
             <button
               id="nav-notifications"
@@ -279,7 +308,7 @@ export default function App() {
               }`}
             >
               <Bell className="w-4 h-4" />
-              <span>দিবস নোটিফিকেশন</span>
+              <span>{t("navNotifications", language)}</span>
               {getNotificationCount() > 0 && (
                 <span className="absolute -top-1 -right-1 bg-natural-accent text-white w-4.5 h-4.5 rounded-full flex items-center justify-center text-[9px] font-black animate-pulse">
                   {getNotificationCount()}
@@ -294,7 +323,7 @@ export default function App() {
               }`}
             >
               <Heart className="w-4 h-4" />
-              <span>পছন্দ তালিকা ({favorites.length})</span>
+              <span>{t("navFavorites", language)} ({favorites.length})</span>
             </button>
             {isAdmin && (
               <button
@@ -305,13 +334,25 @@ export default function App() {
                 }`}
               >
                 <PlusCircle className="w-4 h-4" />
-                <span>এডমিন প্যানেল</span>
+                <span>{t("navAdmin", language)}</span>
               </button>
             )}
           </nav>
 
           {/* User / Authentication Area */}
           <div className="flex items-center gap-2">
+            {/* Language Selector Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowLanguageModal(true)}
+                className="p-2 border border-natural-border bg-white hover:bg-natural-aside/40 rounded-xl text-xs font-bold text-natural-text flex items-center gap-1.5 cursor-pointer shadow-sm"
+                title="Change Language"
+              >
+                <Globe className="w-4 h-4 text-natural-accent" />
+                <span className="hidden sm:inline">{language === "bn" ? "বাংলা" : language === "hi" ? "हिन्दी" : "English"}</span>
+              </button>
+            </div>
+
             {user ? (
               <div className="flex items-center gap-2 border border-natural-border p-1.5 pr-3 bg-white rounded-2xl">
                 {user.photoURL ? (
@@ -346,7 +387,7 @@ export default function App() {
                 className="flex items-center gap-1.5 px-4 py-2 bg-natural-primary hover:bg-natural-primary/90 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer shrink-0"
               >
                 <UserIcon className="w-3.5 h-3.5" />
-                <span>গুগল দিয়ে লগইন</span>
+                <span>{t("googleLogin", language)}</span>
               </button>
             )}
 
@@ -371,7 +412,7 @@ export default function App() {
             <input
               id="mobile-search-input"
               type="text"
-              placeholder="রবীন্দ্রনাথ, নজরুল, পরিবেশ দিবস..."
+              placeholder={t("searchPlaceholder", language)}
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -392,7 +433,7 @@ export default function App() {
               }`}
             >
               <CalendarIcon className="w-4 h-4" />
-              <span>ক্যালেন্ডার ভিউ</span>
+              <span>{t("navCalendar", language)}</span>
             </button>
             <button
               onClick={() => {
@@ -404,7 +445,7 @@ export default function App() {
               }`}
             >
               <Bell className="w-4 h-4" />
-              <span>দিবস নোটিফিকেশন</span>
+              <span>{t("navNotifications", language)}</span>
             </button>
             <button
               onClick={() => {
@@ -416,7 +457,7 @@ export default function App() {
               }`}
             >
               <Heart className="w-4 h-4" />
-              <span>পছন্দ তালিকা ({favorites.length})</span>
+              <span>{t("navFavorites", language)} ({favorites.length})</span>
             </button>
             {isAdmin && (
               <button
@@ -429,7 +470,7 @@ export default function App() {
                 }`}
               >
                 <PlusCircle className="w-4 h-4" />
-                <span>এডমিন প্যানেল</span>
+                <span>{t("navAdmin", language)}</span>
               </button>
             )}
           </div>
@@ -444,7 +485,7 @@ export default function App() {
           <div className="bg-white rounded-3xl border border-natural-border shadow-sm p-6">
             <h2 className="text-lg font-bold text-natural-heading mb-4 flex items-center gap-1.5">
               <Search className="w-5 h-5 text-natural-accent" />
-              <span>অনুসন্ধান ফলাফল ({getSearchResults().length})</span>
+              <span>{t("searchResults", language)} ({getSearchResults().length})</span>
             </h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -458,10 +499,10 @@ export default function App() {
                     {e.date} (MM-DD)
                   </span>
                   <h3 className="text-base font-bold text-natural-text group-hover:text-natural-accent">
-                    {e.titleBn}
+                    {getEventTitle(e, language)}
                   </h3>
                   <p className="text-xs text-natural-text/80 truncate-3-lines leading-relaxed font-medium">
-                    {e.descriptionBn}
+                    {language === "bn" ? e.descriptionBn : language === "hi" ? (e.descriptionBn) : e.descriptionEn}
                   </p>
                 </button>
               ))}
@@ -469,8 +510,8 @@ export default function App() {
               {getSearchResults().length === 0 && (
                 <div className="col-span-full text-center py-12">
                   <HelpCircle className="w-10 h-10 text-natural-text/30 mx-auto mb-3" />
-                  <p className="text-sm font-semibold text-natural-text/70">কোন ফলাফল পাওয়া যায়নি!</p>
-                  <p className="text-xs text-natural-text/50 mt-1">দয়া করে অন্য কোন শব্দ বা বানানে অনুসন্ধান করে দেখুন।</p>
+                  <p className="text-sm font-semibold text-natural-text/70">{t("noResults", language)}</p>
+                  <p className="text-xs text-natural-text/50 mt-1">{t("noResultsSub", language)}</p>
                 </div>
               )}
             </div>
@@ -488,13 +529,14 @@ export default function App() {
                 selectedDate={selectedDate}
                 onSelectDate={setSelectedDate}
                 favorites={favorites}
+                language={language}
               />
 
               {/* Informative Tip Block */}
               <div className="bg-natural-aside/40 border border-natural-border rounded-2xl p-4 flex items-start gap-3">
                 <Info className="w-4 h-4 text-natural-accent shrink-0 mt-0.5" />
                 <p className="text-xs text-natural-text font-medium leading-relaxed">
-                  <strong>টিপস:</strong> ক্যালেন্ডারের যেকোনো তারিখে ক্লিক করে সেই দিনের গুরুত্বপূর্ণ ঐতিহাসিক ঘটনা, কবি-সাহিত্যিকদের জয়ন্তী এবং শুভেচ্ছা বার্তা দেখতে পারেন!
+                  <strong>{t("tipHeader", language)}:</strong> {t("tipText", language)}
                 </p>
               </div>
             </div>
@@ -515,10 +557,11 @@ export default function App() {
                 onToggleFavorite={handleToggleFavorite}
                 onSelectEvent={setActiveEvent}
                 activeEvent={activeEvent}
+                language={language}
               />
 
               {/* Poster Generator Block */}
-              <PosterGenerator event={activeEvent} />
+              <PosterGenerator event={activeEvent} language={language} />
 
             </div>
           </div>
@@ -561,24 +604,32 @@ export default function App() {
       <footer className="bg-natural-aside text-natural-text/80 py-12 px-6 mt-12 border-t border-natural-border text-center">
         <div className="max-w-7xl mx-auto flex flex-col items-center gap-4">
           <span className="text-3xl">📅</span>
-          <h3 className="text-base font-bold text-natural-heading tracking-wide">विशेष दिन कैलेंडार</h3>
+          <h3 className="text-base font-bold text-natural-heading tracking-wide">{t("appTitle", language)}</h3>
           <p className="text-xs max-w-md leading-relaxed text-natural-text/70">
-            বাঙালির আবেগ ও সংস্কৃতির মেরুদণ্ড এবং আন্তর্জাতিক পর্যায়ের গুরুত্বপূর্ণ দিনগুলিকে এক ছাতার তলায় পরিবেশন করতে এই ক্যালেন্ডারটি তৈরি করা হয়েছে।
+            {t("footerDesc", language)}
           </p>
           <div className="flex gap-4 text-xs font-semibold mt-2 text-natural-text/60">
-            <span className="hover:text-natural-accent transition-colors cursor-pointer">জাতীয় দিবস</span>
+            <span className="hover:text-natural-accent transition-colors cursor-pointer">{t("nationalDaysLink", language)}</span>
             <span>•</span>
-            <span className="hover:text-natural-accent transition-colors cursor-pointer">পশ্চিমবঙ্গ উৎসব</span>
+            <span className="hover:text-natural-accent transition-colors cursor-pointer">{t("wbFestivalLink", language)}</span>
             <span>•</span>
-            <span className="hover:text-natural-accent transition-colors cursor-pointer">স্বাধীনতা সংগ্রামী</span>
+            <span className="hover:text-natural-accent transition-colors cursor-pointer">{t("freedomFightersLink", language)}</span>
             <span>•</span>
-            <span className="hover:text-natural-accent transition-colors cursor-pointer">মনীষীদের জয়ন্তী</span>
+            <span className="hover:text-natural-accent transition-colors cursor-pointer">{t("greatThinkersLink", language)}</span>
           </div>
           <span className="text-[10px] text-natural-text/50 mt-6 font-mono">
             &copy; {new Date().getFullYear()} Special Day Calendar. All Rights Reserved. Powered by Gemini & Firebase.
           </span>
         </div>
       </footer>
+
+      {/* Language Selection Popup Modal */}
+      <LanguageSelectionModal
+        isOpen={showLanguageModal}
+        onClose={() => setShowLanguageModal(false)}
+        onSelectLanguage={handleSelectLanguage}
+        currentLanguage={language}
+      />
 
     </div>
   );

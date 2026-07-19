@@ -2,31 +2,27 @@ import React, { useState } from "react";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Award, Star } from "lucide-react";
 import { SpecialDayEvent } from "../types";
 import { categoryMeta } from "../data/defaultEvents";
+import { Language, uiTranslations, getCategoryLabel, getEventTitle } from "../lib/translations";
 
 interface CalendarViewProps {
   events: SpecialDayEvent[];
   selectedDate: Date;
   onSelectDate: (date: Date) => void;
   favorites: string[];
+  language: Language;
 }
-
-const bnMonths = [
-  "জানুয়ারি", "ফেব্রুয়ারি", "মার্চ", "এপ্রিল", "মে", "জুন",
-  "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর"
-];
 
 const enMonths = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"
 ];
 
-const bnDaysShort = ["রবি", "সোম", "মঙ্গল", "বুধ", "বৃহ", "শুক্র", "শনি"];
-
 export const CalendarView: React.FC<CalendarViewProps> = ({
   events,
   selectedDate,
   onSelectDate,
-  favorites
+  favorites,
+  language
 }) => {
   const [currentYear, setCurrentYear] = useState(selectedDate.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(selectedDate.getMonth()); // 0-indexed
@@ -136,7 +132,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               return (
                 <span
                   key={e.id}
-                  title={e.titleBn}
+                  title={getEventTitle(e, language)}
                   className={`w-1.5 h-1.5 rounded-full ${isSelected ? "bg-white" : dotColor} animate-pulse`}
                 />
               );
@@ -158,6 +154,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     return cells;
   };
 
+  const monthNames = uiTranslations.monthTitleBn[language];
+  const dayNames = uiTranslations.daysShort[language];
+
   return (
     <div id="calendar-card" className="bg-white rounded-3xl border border-natural-border shadow-sm p-6 overflow-hidden">
       {/* Header */}
@@ -166,12 +165,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           <div className="flex items-center gap-2">
             <CalendarIcon className="w-5 h-5 text-natural-accent" />
             <h2 id="calendar-header-bn" className="text-xl font-bold text-natural-heading tracking-tight">
-              {bnMonths[currentMonth]} {currentYear}
+              {monthNames[currentMonth]} {currentYear}
             </h2>
           </div>
-          <span className="text-xs text-natural-text/50 font-medium pl-7">
-            {enMonths[currentMonth]} {currentYear}
-          </span>
+          {language !== "en" && (
+            <span className="text-xs text-natural-text/50 font-medium pl-7">
+              {enMonths[currentMonth]} {currentYear}
+            </span>
+          )}
         </div>
 
         <div className="flex gap-1.5">
@@ -194,7 +195,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
       {/* Weekday Labels */}
       <div className="grid grid-cols-7 gap-1 text-center mb-2">
-        {bnDaysShort.map((day, idx) => (
+        {dayNames.map((day, idx) => (
           <div
             key={idx}
             className={`text-xs font-bold py-1.5 rounded-lg ${
@@ -219,27 +220,27 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       <div className="mt-5 pt-4 border-t border-natural-border/60 flex flex-wrap gap-2 text-[11px] justify-center text-natural-text/70">
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-amber-500" />
-          <span>জাতীয়</span>
+          <span>{getCategoryLabel("national", language)}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-blue-500" />
-          <span>আন্তর্জাতিক</span>
+          <span>{getCategoryLabel("international", language)}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-emerald-500" />
-          <span>পশ্চিমবঙ্গ</span>
+          <span>{getCategoryLabel("west_bengal", language)}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-purple-500" />
-          <span>কবি/সাহিত্যিক</span>
+          <span>{language === "en" ? "Poet/Writer" : language === "hi" ? "कवि/साहित्यकार" : "কভি/সাহিত্যিক"}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-red-500" />
-          <span>স্বাধীনতা সংগ্রামী</span>
+          <span>{getCategoryLabel("freedom_fighter", language)}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-rose-500" />
-          <span>ধর্মীয়</span>
+          <span>{getCategoryLabel("religious", language)}</span>
         </div>
       </div>
     </div>

@@ -11,9 +11,11 @@ import {
   Check
 } from "lucide-react";
 import { SpecialDayEvent } from "../types";
+import { Language, t, getEventTitle, getEventWishes } from "../lib/translations";
 
 interface PosterGeneratorProps {
   event: SpecialDayEvent | null;
+  language: Language;
 }
 
 interface PresetGradient {
@@ -33,7 +35,7 @@ const presets: PresetGradient[] = [
   { name: "কসমিক ব্লু", start: "#0f172a", end: "#1e293b", text: "#f8fafc", accent: "#38bdf8" },
 ];
 
-export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event }) => {
+export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event, language }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   
   // States
@@ -54,8 +56,9 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event }) => {
   // Sync state with selected event
   useEffect(() => {
     if (event) {
-      setPosterTitle(event.titleBn);
-      setPosterQuote(event.wishesBn[0] || "");
+      setPosterTitle(getEventTitle(event, language));
+      const wishes = getEventWishes(event, language);
+      setPosterQuote(wishes[0] || "");
       
       // Select appropriate theme based on category
       let matchedPreset = presets[1]; // default twilight
@@ -75,10 +78,10 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event }) => {
       setCustomTextCol(matchedPreset.text);
       setCustomAccent(matchedPreset.accent);
     } else {
-      setPosterTitle("বিশেষ দিন ক্যালেন্ডার");
-      setPosterQuote("প্রতিটি দিনের বিশেষ মুহুর্ত ও শুভেচ্ছা জানুন এক ক্লিকে।");
+      setPosterTitle(t("appTitle", language));
+      setPosterQuote(t("tipText", language));
     }
-  }, [event]);
+  }, [event, language]);
 
   // Handle Preset Change
   const handlePresetSelect = (preset: PresetGradient) => {
@@ -257,28 +260,29 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event }) => {
   const generateAiConcept = async () => {
     if (!event) return;
     setIsAiLoading(true);
-    setAiMessage("Gemini আপনার পোস্টার ডিজাইন করছে...");
+    setAiMessage(language === "en" ? "Gemini is designing your poster..." : language === "hi" ? "Gemini आपका पोस्टर डिजाइन कर रहा है..." : "Gemini আপনার পোস্টার ডিজাইন করছে...");
     try {
       const response = await fetch("/api/gemini/generate-poster-concept", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventTitle: event.titleBn }),
+        body: JSON.stringify({ eventTitle: getEventTitle(event, language) }),
       });
       if (!response.ok) throw new Error("AI request failed");
       const data = await response.json();
       
       // Set concept properties
-      if (data.quoteBn) setPosterQuote(data.quoteBn);
+      const quote = language === "en" ? data.quoteEn : language === "hi" ? data.quoteHi : data.quoteBn;
+      if (quote) setPosterQuote(quote);
       if (data.bgStartColor) setCustomStart(data.bgStartColor);
       if (data.bgEndColor) setCustomEnd(data.bgEndColor);
       if (data.textColor) setCustomTextCol(data.textColor);
       if (data.accentColor) setCustomAccent(data.accentColor);
       
-      setAiMessage("Gemini সফলভাবে পোস্টার আপডেট করেছে! ✨");
+      setAiMessage(language === "en" ? "Gemini updated the poster successfully! ✨" : language === "hi" ? "Gemini ने सफलतापूर्वक पोस्टर अपडेट किया! ✨" : "Gemini সফলভাবে পোস্টার আপডেট করেছে! ✨");
       setTimeout(() => setAiMessage(""), 4000);
     } catch (e: any) {
       console.error(e);
-      setAiMessage("ডিজাইন লোড করতে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।");
+      setAiMessage(language === "en" ? "Failed to load design. Please try again." : language === "hi" ? "डिजाइन लोड करने में विफल। कृपया पुन: प्रयास करें।" : "ডিজাইন লোড করতে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।");
     } finally {
       setIsAiLoading(false);
     }
@@ -289,9 +293,9 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event }) => {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 id="poster-sec-title" className="text-xl font-bold text-natural-heading flex items-center gap-2">
-            🎨 AI পোস্টার মেকার (Ready-made Images)
+            {t("posterMakerTitle", language)}
           </h2>
-          <p className="text-xs text-natural-text/70">আপনার নাম দিয়ে সোশ্যাল মিডিয়ার জন্য শুভেচ্ছা কার্ড তৈরি করুন</p>
+          <p className="text-xs text-natural-text/70">{t("posterMakerSub", language)}</p>
         </div>
 
         {event && (
@@ -302,7 +306,7 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event }) => {
             className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-natural-accent to-natural-primary text-white rounded-xl text-xs font-semibold shadow-sm transition-all cursor-pointer disabled:opacity-50"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            {isAiLoading ? "তৈরি হচ্ছে..." : "AI ডিজাইন করুন"}
+            {isAiLoading ? (language === "en" ? "Designing..." : language === "hi" ? "बना रहा है..." : "তৈরি হচ্ছে...") : (language === "en" ? "AI Design" : language === "hi" ? "AI डिजाइन" : "AI ডিজাইন করুন")}
           </button>
         )}
       </div>
@@ -327,7 +331,7 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event }) => {
           />
           <div className="mt-3 text-natural-text/50 text-xs flex items-center gap-1">
             <Maximize2 className="w-3 h-3 text-natural-accent" />
-            <span>সুপার হাই-ডেফিনিশন ১০৮০p ডাউনলোড প্রিভিউ</span>
+            <span>{language === "en" ? "Super HD 1080p download preview" : language === "hi" ? "सुपर एचडी 1080p डाउनलोड पूर्वावलोकन" : "সুপার হাই-ডেফিনিশন ১০৮০p ডাউনলোড প্রিভিউ"}</span>
           </div>
         </div>
 
@@ -336,7 +340,7 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event }) => {
           {/* Size Selectors */}
           <div>
             <label className="text-xs font-bold text-natural-text/60 uppercase tracking-wider mb-2 block">
-              সাইজ এবং ফরম্যাট (Aspect Ratio)
+              {t("aspectRatioLabel", language)}
             </label>
             <div className="grid grid-cols-3 gap-2">
               <button
@@ -349,7 +353,7 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event }) => {
                 }`}
               >
                 <span className="w-4 h-4 border border-current rounded-sm" />
-                <span>বর্গাকার (1:1)</span>
+                <span>{t("square", language)}</span>
               </button>
               <button
                 id="ratio-16-9"
@@ -361,7 +365,7 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event }) => {
                 }`}
               >
                 <span className="w-5 h-3 border border-current rounded-sm" />
-                <span>ব্যানার (16:9)</span>
+                <span>{t("banner", language)}</span>
               </button>
               <button
                 id="ratio-9-16"
@@ -373,7 +377,7 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event }) => {
                 }`}
               >
                 <span className="w-3 h-5 border border-current rounded-sm" />
-                <span>স্ট্যাটাস (9:16)</span>
+                <span>{t("status", language)}</span>
               </button>
             </div>
           </div>
@@ -381,7 +385,7 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event }) => {
           {/* Background Gradients Preset */}
           <div>
             <label className="text-xs font-bold text-natural-text/60 uppercase tracking-wider mb-2 block">
-              থিম ও ব্যাকগ্রাউন্ড কালার
+              {t("selectTheme", language)}
             </label>
             <div className="grid grid-cols-3 gap-1.5">
               {presets.map((preset, index) => {
@@ -407,7 +411,7 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event }) => {
             {/* Custom Color Picker Toggle */}
             <div className="mt-3 flex gap-2">
               <div className="flex-1">
-                <span className="text-[10px] text-natural-text/50 block mb-1">স্টার্ট রঙ</span>
+                <span className="text-[10px] text-natural-text/50 block mb-1">{language === "en" ? "Start Color" : language === "hi" ? "प्रारंभ रंग" : "স্টার্ট রঙ"}</span>
                 <div className="flex items-center gap-1.5">
                   <input
                     type="color"
@@ -419,7 +423,7 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event }) => {
                 </div>
               </div>
               <div className="flex-1">
-                <span className="text-[10px] text-natural-text/50 block mb-1">এন্ড রঙ</span>
+                <span className="text-[10px] text-natural-text/50 block mb-1">{language === "en" ? "End Color" : language === "hi" ? "अंतिम रंग" : "এন্ড রঙ"}</span>
                 <div className="flex items-center gap-1.5">
                   <input
                     type="color"
@@ -436,7 +440,7 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event }) => {
           {/* Text Controls */}
           <div>
             <label className="text-xs font-bold text-natural-text/60 uppercase tracking-wider mb-2 block">
-              লেখা ও শুভেচ্ছা এডিট করুন
+              {language === "en" ? "Edit Text & Greeting" : language === "hi" ? "टेक्स्ट और शुभकामनाएं बदलें" : "লেখা ও শুভেচ্ছা এডিট করুন"}
             </label>
             <div className="flex flex-col gap-2">
               <input
@@ -462,14 +466,14 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event }) => {
           <div>
             <label className="text-xs font-bold text-natural-text/60 uppercase tracking-wider mb-2 block flex items-center gap-1">
               <User className="w-3 h-3 text-natural-text/50" />
-              <span>আপনার নাম দিন (সিগনেচার)</span>
+              <span>{language === "en" ? "Your Name (Signature)" : language === "hi" ? "आपका नाम (हस्ताक्षर)" : "আপনার নাম দিন (সিগনেচার)"}</span>
             </label>
             <input
               id="edit-poster-signature"
               type="text"
               value={signature}
               onChange={(e) => setSignature(e.target.value)}
-              placeholder="যেমন: অমল রায়"
+              placeholder={t("yourNamePlaceholder", language)}
               className="w-full px-3 py-2 border border-natural-border bg-white text-natural-text rounded-xl text-xs focus:ring-1 focus:ring-natural-accent outline-none"
             />
           </div>
@@ -482,7 +486,7 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event }) => {
               className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-natural-primary hover:bg-natural-primary/90 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
             >
               <Download className="w-4 h-4" />
-              <span>PNG ডাউনলোড</span>
+              <span>{language === "en" ? "PNG Download" : language === "hi" ? "PNG डाउनलोड" : "PNG ডাউনলোড"}</span>
             </button>
             <button
               id="dl-jpg"
@@ -490,7 +494,7 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event }) => {
               className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-natural-accent hover:bg-natural-accent/90 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
             >
               <Download className="w-4 h-4" />
-              <span>JPG ডাউনলোড</span>
+              <span>{language === "en" ? "JPG Download" : language === "hi" ? "JPG डाउनलोड" : "JPG ডাউনলোড"}</span>
             </button>
           </div>
         </div>

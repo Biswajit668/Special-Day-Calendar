@@ -57,31 +57,32 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event, languag
       const title = getEventTitle(event, language);
       const desc = getEventDescription(event, language);
       
-      let styleHint = "cultural festive artwork with decorative lighting and traditional elements";
+      let styleHint = "authentic Indian Bengali commemorative tribute poster layout on parchment background, featuring portrait illustration on the left, bold Bengali typography 'জন্মজয়ন্তীতে' and 'বিনম্র শ্রদ্ধা ও আন্তরিক শুভেচ্ছা', decorative gold flourish ornaments, inspirational quote card, Indian tricolor flag waves, ink quill pen, books, and rich maroon courtesy footer banner";
       if (event.category === "poet" || event.category === "writer") {
-        styleHint = "artistic portrait style with book, pen, literary aesthetic and warm ambient background";
+        styleHint = "authentic Bengali literary tribute poster with artistic portrait, open vintage books, inkwell quill, quote card box, Bengali typography, and cream parchment background";
       } else if (event.category === "freedom_fighter" || event.category === "national") {
-        styleHint = "patriotic Indian celebration poster with tricolor saffron white green accents and majestic dignity";
+        styleHint = "patriotic Indian freedom fighter homage poster, realistic portrait, Ashoka Chakra, tricolor saffron white green flag wave, Bengali typography 'বিনম্র শ্রদ্ধা ও আন্তরিক শুভেচ্ছা', quote box, maroon bottom banner";
       } else if (event.category === "west_bengal") {
-        styleHint = "traditional Bengali celebration poster with delicate Alpona floor patterns, marigold flowers, and cultural motifs";
+        styleHint = "traditional Bengali festival tribute poster with white Alpona patterns, marigold flowers, Bengali typography, quote box, and cultural motif borders";
       } else if (event.category === "religious") {
-        styleHint = "glowing spiritual festival artwork with diyas, oil lamps, floral decorations, and auspicious atmosphere";
+        styleHint = "glowing spiritual festival poster artwork with oil lamps, diyas, flower garlands, Bengali typography greeting banner, and auspicious decorative ornaments";
       }
 
-      const generatedPrompt = `High quality festival greeting poster for "${title}". Description: ${desc}. Style: ${styleHint}. Vibrant colors, highly detailed, artistic 8k resolution.`;
+      const generatedPrompt = `High quality authentic Bengali celebration tribute poster for "${title}". Description: ${desc}. Style: ${styleHint}. Rich colors, detailed graphic design typography layout, 8k resolution.`;
       setPrompt(generatedPrompt);
     } else {
-      setPrompt("A vibrant cultural celebration poster with marigold flowers, traditional Bengali Alpona artwork, oil lamps, and festive decorations, highly detailed 8k.");
+      setPrompt("Authentic Bengali tribute festival poster layout with portrait illustration, vintage parchment paper background, bold Bengali typography, quotation card, tricolor accents, decorative flourishes, and maroon courtesy footer banner, 8k resolution.");
     }
   }, [event, language]);
 
-  // Helper to append user name greeting to prompt
+  // Helper to append user name greeting & Bengali poster style to prompt
   const buildFullPrompt = () => {
-    let full = prompt;
+    let styleSuffix = ", authentic Indian Bengali commemorative tribute poster layout on cream parchment background, bold typography, decorative flourish ornaments, quote card box, and deep maroon bottom courtesy banner";
+    
     if (userName.trim()) {
-      full += `, featuring elegant festive text banner with "Greetings from ${userName.trim()}" written clearly on the poster`;
+      styleSuffix += `, featuring 'সৌজন্যে: ${userName.trim()}' (Courtesy: ${userName.trim()}) written clearly in gold text on the maroon bottom banner`;
     }
-    return full;
+    return `${prompt}${styleSuffix}`;
   };
 
   // AI Image Generation Execution
@@ -255,25 +256,30 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event, languag
           // 1. Base Image
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-          // 2. Bottom Gradient Ribbon
-          const bannerHeight = Math.max(60, Math.floor(canvas.height * 0.085));
+          // 2. Bottom Courtesy Maroon Banner (Matching authentic Bengali tribute poster style)
+          const bannerHeight = Math.max(68, Math.floor(canvas.height * 0.095));
+          
+          // Draw Maroon Solid/Gradient Banner
           const gradient = ctx.createLinearGradient(0, canvas.height - bannerHeight, 0, canvas.height);
-          gradient.addColorStop(0, "rgba(0, 0, 0, 0)");
-          gradient.addColorStop(0.3, "rgba(0, 0, 0, 0.65)");
-          gradient.addColorStop(1, "rgba(0, 0, 0, 0.9)");
-
+          gradient.addColorStop(0, "#800000");  // Rich Maroon
+          gradient.addColorStop(0.5, "#600000"); // Deep Red
+          gradient.addColorStop(1, "#400000");   // Dark Crimson
           ctx.fillStyle = gradient;
           ctx.fillRect(0, canvas.height - bannerHeight, canvas.width, bannerHeight);
 
-          // 3. Name Text
-          const fontSize = Math.max(20, Math.floor(canvas.height * 0.034));
-          ctx.font = `bold ${fontSize}px sans-serif`;
-          ctx.fillStyle = "#FDE047"; // Warm gold text
+          // Gold Border Line at the top of banner
+          ctx.fillStyle = "#FFD700";
+          ctx.fillRect(0, canvas.height - bannerHeight, canvas.width, Math.max(3, Math.floor(canvas.height * 0.003)));
+
+          // 3. Name Text & Sojonne Banner
+          const fontSize = Math.max(22, Math.floor(canvas.height * 0.038));
+          ctx.font = `bold ${fontSize}px "Kohinoor Bangla", "Noto Sans Bengali", sans-serif`;
+          ctx.fillStyle = "#FFE066"; // Radiant Gold text
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
 
-          const prefix = language === "bn" ? "শুভেচ্ছান্তে: " : language === "hi" ? "शुभकामनाएं: " : "Best Wishes from: ";
-          const text = `✨ ${prefix}${userName.trim()} ✨`;
+          const prefix = language === "bn" ? "সৌজন্যে: " : language === "hi" ? "सौजन्य से: " : "Courtesy: ";
+          const text = `❖ ${prefix}${userName.trim()} ❖`;
           ctx.fillText(text, canvas.width / 2, canvas.height - (bannerHeight / 2));
 
           const dataUrl = canvas.toDataURL(format === "jpg" ? "image/jpeg" : "image/png", 0.95);
@@ -572,11 +578,14 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event, languag
                   className="max-h-[380px] w-auto object-contain rounded-2xl"
                 />
 
-                {/* Dynamic Name Banner Overlay Preview */}
+                {/* Dynamic Courtesy Name Banner Overlay Preview */}
                 {userName.trim() && (
-                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent p-3 pt-6 text-center">
-                    <p className="text-amber-300 font-extrabold text-xs sm:text-sm drop-shadow-md tracking-wide">
-                      ✨ {language === "bn" ? "শুভেচ্ছান্তে: " : language === "hi" ? "शुभकामनाएं: " : "Best Wishes from: "}{userName.trim()} ✨
+                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-r from-[#800000] via-[#600000] to-[#400000] border-t-2 border-amber-400 p-2.5 text-center shadow-lg">
+                    <p className="text-amber-300 font-extrabold text-xs sm:text-sm drop-shadow-md tracking-wide flex items-center justify-center gap-1">
+                      <span>❖</span>
+                      <span>{language === "bn" ? "সৌজন্যে: " : language === "hi" ? "सौजन्य से: " : "Courtesy: "}</span>
+                      <span className="text-white underline decoration-amber-400 decoration-2 underline-offset-2">{userName.trim()}</span>
+                      <span>❖</span>
                     </p>
                   </div>
                 )}

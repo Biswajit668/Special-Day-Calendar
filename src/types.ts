@@ -15,12 +15,15 @@ export interface SpecialDayEvent {
   id: string;
   titleBn: string;
   titleEn: string;
+  titleHi?: string;
   date: string; // MM-DD or YYYY-MM-DD
   category: EventCategory;
   descriptionBn: string;
   descriptionEn: string;
+  descriptionHi?: string;
   wishesBn: string[];
   wishesEn: string[];
+  wishesHi?: string[];
   fbCaption?: string;
   waMessage?: string;
   xPost?: string;

@@ -91,6 +91,11 @@ export const uiTranslations = {
     en: "Favorites List",
     hi: "पसंदीदा सूची"
   },
+  navContacts: {
+    bn: "কন্টাক্টস ও জন্মদিন",
+    en: "Contacts & Birthdays",
+    hi: "संपर्क और जन्मदिन"
+  },
   navAdmin: {
     bn: "এডমিন প্যানেল",
     en: "Admin Panel",

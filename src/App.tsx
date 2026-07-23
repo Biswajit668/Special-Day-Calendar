@@ -12,7 +12,8 @@ import {
   X,
   PlusCircle,
   HelpCircle,
-  Globe
+  Globe,
+  Users
 } from "lucide-react";
 import { defaultEvents } from "./data/defaultEvents";
 import { SpecialDayEvent, UserProfile } from "./types";
@@ -21,6 +22,7 @@ import { EventDetails } from "./components/EventDetails";
 import { PosterGenerator } from "./components/PosterGenerator";
 import { NotificationFeed } from "./components/NotificationFeed";
 import { FavoriteList } from "./components/FavoriteList";
+import { ContactsManager } from "./components/ContactsManager";
 import { AdminPanel } from "./components/AdminPanel";
 import { LanguageSelectionModal } from "./components/LanguageSelectionModal";
 import { Language, t, getEventTitle, getEventDescription } from "./lib/translations";
@@ -38,6 +40,7 @@ import {
   signInWithPopup, 
   signOut, 
   onAuthStateChanged,
+  GoogleAuthProvider,
   collection, 
   onSnapshot,
   query,
@@ -83,6 +86,7 @@ export default function App() {
 
   // Auth & Profile
   const [user, setUser] = useState<User | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
   // Favorites (Syncing local + Firestore soon)
@@ -291,7 +295,11 @@ export default function App() {
   // Google Login Handler
   const handleGoogleLogin = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      if (credential?.accessToken) {
+        setAccessToken(credential.accessToken);
+      }
     } catch (e) {
       console.error("Auth login failure: ", e);
     }
@@ -301,6 +309,7 @@ export default function App() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
+      setAccessToken(null);
       setActiveTab("calendar");
     } catch (e) {
       console.error("Auth logout failure: ", e);
@@ -455,6 +464,16 @@ export default function App() {
               <Heart className="w-4 h-4" />
               <span>{t("navFavorites", language)} ({favorites.length})</span>
             </button>
+            <button
+              id="nav-contacts"
+              onClick={() => setActiveTab("contacts")}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                activeTab === "contacts" ? "bg-white text-natural-accent border border-natural-border/60 shadow-sm" : "text-natural-text hover:bg-white/50"
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span>{t("navContacts", language)}</span>
+            </button>
             {isAdmin && (
               <button
                 id="nav-admin"
@@ -590,6 +609,18 @@ export default function App() {
               <Heart className="w-4 h-4" />
               <span>{t("navFavorites", language)} ({favorites.length})</span>
             </button>
+            <button
+              onClick={() => {
+                setActiveTab("contacts");
+                setMobileMenuOpen(false);
+              }}
+              className={`p-3 rounded-xl text-xs font-bold flex flex-col items-center gap-1.5 border transition-all ${
+                activeTab === "contacts" ? "border-natural-accent bg-white text-natural-heading shadow-sm" : "border-natural-border/60 text-natural-text bg-white/40"
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span>{t("navContacts", language)}</span>
+            </button>
             {isAdmin && (
               <button
                 onClick={() => {
@@ -724,6 +755,20 @@ export default function App() {
             onSelectEvent={setActiveEvent}
             setActiveTab={setActiveTab}
             language={language}
+          />
+        )}
+
+        {/* Tab 4: Google Contacts & Birthdays */}
+        {activeTab === "contacts" && (
+          <ContactsManager
+            user={user}
+            accessToken={accessToken}
+            onGoogleLogin={handleGoogleLogin}
+            language={language}
+            onSelectDate={setSelectedDate}
+            onSelectEvent={setActiveEvent}
+            setActiveTab={setActiveTab}
+            onAddCustomEvent={handleAddCustomEvent}
           />
         )}
 

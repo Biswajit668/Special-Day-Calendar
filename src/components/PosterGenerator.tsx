@@ -145,27 +145,68 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event, languag
             : "Rendering image via Gemini AI service..."
       );
 
-      const proxyRes = await fetch("/api/gemini/generate-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: fullPrompt,
-          userUid: user.uid,
-          aspectRatio: aspectRatio,
-          style: selectedStyle
-        })
-      });
-
       let imageUrlResult: string | null = null;
 
-      if (proxyRes.ok) {
-        const proxyData = await proxyRes.json();
-        if (proxyData.imageUrl) {
-          imageUrlResult = proxyData.imageUrl;
+      // Try Backend API route first
+      try {
+        const proxyRes = await fetch("/api/gemini/generate-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: fullPrompt,
+            userUid: user.uid,
+            aspectRatio: aspectRatio,
+            style: selectedStyle
+          })
+        });
+
+        const contentType = proxyRes.headers.get("content-type") || "";
+
+        if (proxyRes.ok && contentType.includes("application/json")) {
+          const proxyData = await proxyRes.json();
+          if (proxyData.imageUrl) {
+            imageUrlResult = proxyData.imageUrl;
+          }
+        } else if (contentType.includes("application/json")) {
+          const errData = await proxyRes.json();
+          console.warn("Backend API error response:", errData);
+        } else {
+          console.warn("Backend API not returning JSON (likely static host like GitHub Pages). Switching to client AI engine...");
         }
-      } else {
-        const errData = await proxyRes.json();
-        throw new Error(errData.details || errData.error || "Image generation failed");
+      } catch (fetchErr) {
+        console.warn("Backend API call failed, switching to client AI engine...", fetchErr);
+      }
+
+      // Fallback: If backend route is absent or failed (e.g. static host on GitHub Pages), generate client-side AI image
+      if (!imageUrlResult) {
+        setStatusText(
+          language === "bn" 
+            ? "ক্লায়েন্ট AI এঞ্জিনের মাধ্যমে এইচডি ছবি পোস্টার তৈরি হচ্ছে..." 
+            : language === "hi" 
+              ? "क्लाइंट AI इंजन के माध्यम से चित्र रेंडर किया जा रहा है..." 
+              : "Generating high-quality poster via client AI engine..."
+        );
+
+        let width = 1024;
+        let height = 1024;
+        if (aspectRatio === "16:9") { width = 1280; height = 720; }
+        else if (aspectRatio === "9:16") { width = 720; height = 1280; }
+        else if (aspectRatio === "4:3") { width = 1024; height = 768; }
+
+        const seed = Math.floor(Math.random() * 1000000);
+        const encodedPrompt = encodeURIComponent(fullPrompt);
+        const fallbackUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${seed}&nologo=true&model=flux`;
+
+        // Preload image to ensure valid rendering
+        const img = new Image();
+        img.src = fallbackUrl;
+        await new Promise((resolve) => {
+          img.onload = () => resolve(true);
+          img.onerror = () => resolve(true);
+          setTimeout(() => resolve(true), 12000); // 12s safety timeout
+        });
+
+        imageUrlResult = fallbackUrl;
       }
 
       if (imageUrlResult) {
@@ -181,7 +222,7 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event, languag
         };
         setGallery((prev) => [newItem, ...prev.slice(0, 9)]);
       } else {
-        throw new Error("Gemini AI did not return image data. Please try again.");
+        throw new Error("AI engine did not return image data. Please try again.");
       }
 
     } catch (err: any) {

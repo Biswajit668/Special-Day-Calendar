@@ -36,11 +36,15 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(app, configData.firestoreDatabaseId);
+const db = (configData as any).firestoreDatabaseId ? getFirestore(app, (configData as any).firestoreDatabaseId) : getFirestore(app);
 const auth = getAuth(app);
 
-// Google Auth Provider
+// Google Auth Provider with Workspace Contacts Scopes
 const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope('https://www.googleapis.com/auth/contacts.readonly');
+googleProvider.addScope('https://www.googleapis.com/auth/user.birthday.read');
+googleProvider.addScope('https://www.googleapis.com/auth/user.emails.read');
+googleProvider.addScope('https://www.googleapis.com/auth/user.phonenumbers.read');
 googleProvider.setCustomParameters({
   prompt: 'select_account'
 });
@@ -97,6 +101,7 @@ export {
   db, 
   auth, 
   googleProvider,
+  GoogleAuthProvider,
   signInWithPopup,
   signOut,
   onAuthStateChanged,

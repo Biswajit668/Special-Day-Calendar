@@ -8,7 +8,8 @@ import {
   Copy, 
   Share2, 
   Wand2,
-  Maximize2
+  Maximize2,
+  User
 } from "lucide-react";
 import { SpecialDayEvent } from "../types";
 import { Language, t, getEventTitle, getEventDescription } from "../lib/translations";
@@ -32,7 +33,14 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event, languag
   // 1. Image Generation Controls State
   const [prompt, setPrompt] = useState<string>("");
   const [aspectRatio, setAspectRatio] = useState<"1:1" | "16:9" | "9:16" | "4:3">("1:1");
-  const [selectedStyle, setSelectedStyle] = useState<string>("festive");
+  const [userName, setUserName] = useState<string>("");
+
+  // Pre-fill user name when Google login user is present
+  useEffect(() => {
+    if (user?.displayName && !userName) {
+      setUserName(user.displayName);
+    }
+  }, [user]);
   
   // 2. Execution & Output States
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
@@ -67,32 +75,13 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event, languag
     }
   }, [event, language]);
 
-  // Helper to append style keywords to prompt
+  // Helper to append user name greeting to prompt
   const buildFullPrompt = () => {
-    let styleSuffix = "";
-    switch (selectedStyle) {
-      case "festive":
-        styleSuffix = ", festive decorations, marigold garlands, warm lighting, celebratory mood, vibrant colors";
-        break;
-      case "bengali_alpona":
-        styleSuffix = ", traditional Bengali Alpona folk art, intricate white mandala patterns, cultural terracotta heritage";
-        break;
-      case "digital_art":
-        styleSuffix = ", digital illustration, clean vector aesthetic, smooth gradient lighting, ultra high definition";
-        break;
-      case "photorealistic":
-        styleSuffix = ", hyperrealistic photograph, professional studio photography, cinematic lighting, 8k resolution";
-        break;
-      case "watercolor":
-        styleSuffix = ", soft watercolor painting, artistic brush strokes, pastel aesthetic, dreamlike background";
-        break;
-      case "minimalist":
-        styleSuffix = ", minimalist poster design, elegant negative space, clean typography focus, modern color palette";
-        break;
-      default:
-        styleSuffix = ", festive artwork, high quality";
+    let full = prompt;
+    if (userName.trim()) {
+      full += `, featuring elegant festive text banner with "Greetings from ${userName.trim()}" written clearly on the poster`;
     }
-    return `${prompt}${styleSuffix}`;
+    return full;
   };
 
   // AI Image Generation Execution
@@ -156,7 +145,7 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event, languag
             prompt: fullPrompt,
             userUid: user.uid,
             aspectRatio: aspectRatio,
-            style: selectedStyle
+            userName: userName.trim()
           })
         });
 
@@ -242,9 +231,65 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event, languag
     }
   };
 
-  // Download Generated Image
-  const handleDownloadImage = (format: "png" | "jpg") => {
+  // Download Generated Image with optional Name Banner Overlay
+  const handleDownloadImage = async (format: "png" | "jpg") => {
     if (!activeImage) return;
+
+    if (userName.trim()) {
+      try {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.src = activeImage;
+        await new Promise((resolve) => {
+          img.onload = () => resolve(true);
+          img.onerror = () => resolve(true);
+          setTimeout(() => resolve(true), 4000);
+        });
+
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth || 1024;
+        canvas.height = img.naturalHeight || 1024;
+        const ctx = canvas.getContext("2d");
+
+        if (ctx) {
+          // 1. Base Image
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          // 2. Bottom Gradient Ribbon
+          const bannerHeight = Math.max(60, Math.floor(canvas.height * 0.085));
+          const gradient = ctx.createLinearGradient(0, canvas.height - bannerHeight, 0, canvas.height);
+          gradient.addColorStop(0, "rgba(0, 0, 0, 0)");
+          gradient.addColorStop(0.3, "rgba(0, 0, 0, 0.65)");
+          gradient.addColorStop(1, "rgba(0, 0, 0, 0.9)");
+
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, canvas.height - bannerHeight, canvas.width, bannerHeight);
+
+          // 3. Name Text
+          const fontSize = Math.max(20, Math.floor(canvas.height * 0.034));
+          ctx.font = `bold ${fontSize}px sans-serif`;
+          ctx.fillStyle = "#FDE047"; // Warm gold text
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+
+          const prefix = language === "bn" ? "শুভেচ্ছান্তে: " : language === "hi" ? "शुभकामनाएं: " : "Best Wishes from: ";
+          const text = `✨ ${prefix}${userName.trim()} ✨`;
+          ctx.fillText(text, canvas.width / 2, canvas.height - (bannerHeight / 2));
+
+          const dataUrl = canvas.toDataURL(format === "jpg" ? "image/jpeg" : "image/png", 0.95);
+          const link = document.createElement("a");
+          link.href = dataUrl;
+          link.download = `poster_${userName.trim().replace(/\s+/g, '_')}_${Date.now()}.${format}`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          return;
+        }
+      } catch (err) {
+        console.warn("Canvas overlay failed, falling back to direct download:", err);
+      }
+    }
+
     const link = document.createElement("a");
     link.href = activeImage;
     link.download = `gemini_ai_image_${event?.id || "custom"}_${Date.now()}.${format}`;
@@ -399,34 +444,49 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event, languag
             />
           </div>
 
-          {/* Quick Style Chips */}
+          {/* Your Name Input Field */}
           <div>
-            <label className="text-[11px] font-bold text-natural-text/60 uppercase tracking-wider mb-2 block">
-              {language === "bn" ? "আর্ট স্টাইল চয়ন করুন" : language === "hi" ? "कला शैली चुनें" : "Select Art Style"}
-            </label>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-              {[
-                { id: "festive", label: language === "bn" ? "🌺 উৎসবের সাজসজ্জা" : "🌺 Festive Decorative" },
-                { id: "bengali_alpona", label: language === "bn" ? "🪔 ঐতিহ্যবাহী আল্পনা" : "🪔 Traditional Alpona" },
-                { id: "digital_art", label: language === "bn" ? "🎨 ডিজিটাল আর্ট" : "🎨 Digital Art" },
-                { id: "photorealistic", label: language === "bn" ? "📸 রিয়েলিস্টিক ফটো" : "📸 Photorealistic" },
-                { id: "watercolor", label: language === "bn" ? "🖌️ জলরঙের চিত্র" : "🖌️ Watercolor" },
-                { id: "minimalist", label: language === "bn" ? "✨ মিনিমালিস্ট" : "✨ Minimalist" },
-              ].map((st) => (
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-bold text-natural-text/60 uppercase tracking-wider flex items-center gap-1">
+                <User className="w-3.5 h-3.5 text-natural-accent" />
+                <span>
+                  {language === "bn" 
+                    ? "আপনার নাম (ছবিতে ফুট উঠবে)" 
+                    : language === "hi" 
+                      ? "आपका नाम (चित्र पर प्रदर्शित होगा)" 
+                      : "Your Name (Appears on Poster)"}
+                </span>
+              </label>
+              {user?.displayName && userName !== user.displayName && (
                 <button
-                  key={st.id}
                   type="button"
-                  onClick={() => setSelectedStyle(st.id)}
-                  className={`py-1.5 px-2.5 rounded-xl text-[11px] font-semibold border text-center transition-all cursor-pointer ${
-                    selectedStyle === st.id
-                      ? "bg-natural-accent/15 border-natural-accent text-natural-heading font-bold shadow-xs"
-                      : "bg-white border-natural-border text-natural-text hover:bg-natural-aside/40"
-                  }`}
+                  onClick={() => setUserName(user.displayName || "")}
+                  className="text-[10px] font-bold text-natural-accent hover:underline"
                 >
-                  {st.label}
+                  {language === "bn" ? "গুগল নাম ব্যবহার করুন" : "Use Google Name"}
                 </button>
-              ))}
+              )}
+            </div>
+
+            <div className="relative">
+              <input
+                type="text"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+                placeholder={
+                  language === "bn" 
+                    ? "আপনার নাম লিখুন... (যেমন: বিশ্বজিৎ নস্কর)" 
+                    : language === "hi" 
+                      ? "अपना नाम लिखें... (जैसे: बिश्वजीत नस्कर)" 
+                      : "Enter your name... (e.g. Biswajit Naskar)"
+                }
+                className="w-full px-3.5 py-2.5 bg-white border border-natural-border rounded-2xl text-xs text-natural-text font-bold focus:ring-1 focus:ring-natural-accent outline-none shadow-xs"
+              />
+              {userName.trim() && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md font-bold">
+                  {language === "bn" ? "ছবিতে সংযুক্ত" : "On Image"}
+                </span>
+              )}
             </div>
           </div>
 
@@ -504,13 +564,22 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event, languag
           
           {activeImage ? (
             <div className="flex flex-col items-center gap-4 w-full">
-              <div className="relative rounded-2xl overflow-hidden shadow-lg border border-natural-border/60 bg-white max-h-[380px] flex items-center justify-center">
+              <div className="relative rounded-2xl overflow-hidden shadow-lg border border-natural-border/60 bg-white max-h-[380px] flex items-center justify-center group">
                 <img
                   src={activeImage}
                   alt="Gemini AI Generated Poster"
                   referrerPolicy="no-referrer"
                   className="max-h-[380px] w-auto object-contain rounded-2xl"
                 />
+
+                {/* Dynamic Name Banner Overlay Preview */}
+                {userName.trim() && (
+                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent p-3 pt-6 text-center">
+                    <p className="text-amber-300 font-extrabold text-xs sm:text-sm drop-shadow-md tracking-wide">
+                      ✨ {language === "bn" ? "শুভেচ্ছান্তে: " : language === "hi" ? "शुभकामनाएं: " : "Best Wishes from: "}{userName.trim()} ✨
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}

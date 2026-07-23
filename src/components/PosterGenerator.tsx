@@ -62,13 +62,9 @@ export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event, languag
     }
   }, [event, language]);
 
-  // Helper to append user name greeting to prompt
+  // Helper to return exact user prompt without hidden modifiers
   const buildFullPrompt = () => {
-    let full = prompt.trim();
-    if (userName.trim()) {
-      full += `, with text "Greetings from ${userName.trim()}"`;
-    }
-    return full;
+    return prompt.trim();
   };
 
   // AI Image Generation Execution

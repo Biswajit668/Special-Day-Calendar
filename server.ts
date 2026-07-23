@@ -116,7 +116,7 @@ app.post("/api/gemini/generate-image", async (req, res) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: `Generate a high quality visual image for: ${prompt}` }] }],
+        contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           responseModalities: ["IMAGE", "TEXT"]
         }

@@ -24,6 +24,11 @@ import { FavoriteList } from "./components/FavoriteList";
 import { AdminPanel } from "./components/AdminPanel";
 import { LanguageSelectionModal } from "./components/LanguageSelectionModal";
 import { Language, t, getEventTitle, getEventDescription } from "./lib/translations";
+import { 
+  getStoredNotificationSettings, 
+  sendBrowserNotification, 
+  triggerEventNotification 
+} from "./lib/notificationService";
 
 // Firebase Imports
 import { 
@@ -223,6 +228,65 @@ export default function App() {
       setActiveEvent(null);
     }
   }, [selectedDate, events]);
+
+  // 5. Automatic Notification Engine (Background Check)
+  useEffect(() => {
+    const checkNotifications = () => {
+      const settings = getStoredNotificationSettings();
+      if (!settings.dailyAlertEnabled && settings.customReminders.length === 0) return;
+
+      const now = new Date();
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const dd = String(now.getDate()).padStart(2, "0");
+      const todayKey = `${mm}-${dd}`;
+      const hours = String(now.getHours()).padStart(2, "0");
+      const mins = String(now.getMinutes()).padStart(2, "0");
+      const currentTimeStr = `${hours}:${mins}`;
+
+      // 1. Check Custom Reminders
+      settings.customReminders.forEach((rem) => {
+        if (rem.enabled && rem.date === todayKey && rem.time === currentTimeStr) {
+          const lastFiredKey = `fired_rem_${rem.id}_${todayKey}`;
+          if (!sessionStorage.getItem(lastFiredKey)) {
+            sessionStorage.setItem(lastFiredKey, "true");
+            sendBrowserNotification(
+              `🔔 ${rem.title}`, 
+              {
+                body: language === "bn" 
+                  ? "আজকের আপনার নির্ধারিত বিশেষ দিনের স্মারক অ্যালার্ট।" 
+                  : "Your scheduled special day reminder alert.",
+                tag: rem.id
+              }, 
+              settings.soundEnabled
+            );
+          }
+        }
+      });
+
+      // 2. Check Daily Special Day Morning Notification
+      if (settings.dailyAlertEnabled && settings.dailyAlertTime === currentTimeStr) {
+        const lastDailyFiredKey = `fired_daily_${todayKey}`;
+        if (!sessionStorage.getItem(lastDailyFiredKey)) {
+          sessionStorage.setItem(lastDailyFiredKey, "true");
+          const todayEvs = events.filter((e) => e.date === todayKey);
+          if (todayEvs.length > 0) {
+            const firstEv = todayEvs[0];
+            triggerEventNotification(
+              firstEv, 
+              language, 
+              language === "bn" 
+                ? `আজকের বিশেষ দিন: ${getEventTitle(firstEv, language)}` 
+                : `Today's Special Day: ${getEventTitle(firstEv, language)}`
+            );
+          }
+        }
+      }
+    };
+
+    checkNotifications();
+    const interval = setInterval(checkNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [events, language]);
 
   // Google Login Handler
   const handleGoogleLogin = async () => {
@@ -628,7 +692,12 @@ export default function App() {
               />
 
               {/* Poster Generator Block */}
-              <PosterGenerator event={activeEvent} language={language} />
+              <PosterGenerator 
+                event={activeEvent} 
+                language={language} 
+                user={user} 
+                onGoogleLogin={handleGoogleLogin} 
+              />
 
             </div>
           </div>

@@ -1,504 +1,552 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { 
-  Download, 
   Sparkles, 
+  Download, 
   RefreshCw, 
-  Type, 
-  Palette, 
-  Maximize2, 
-  User, 
-  Image as ImageIcon,
-  Check
+  Image as ImageIcon, 
+  AlertCircle, 
+  Copy, 
+  Share2, 
+  Wand2,
+  Maximize2
 } from "lucide-react";
 import { SpecialDayEvent } from "../types";
-import { Language, t, getEventTitle, getEventWishes } from "../lib/translations";
+import { Language, t, getEventTitle, getEventDescription } from "../lib/translations";
 
 interface PosterGeneratorProps {
   event: SpecialDayEvent | null;
   language: Language;
+  user?: any | null;
+  onGoogleLogin?: () => void;
 }
 
-interface PresetGradient {
-  name: string;
-  start: string;
-  end: string;
-  text: string;
-  accent: string;
+interface GeneratedImageItem {
+  id: string;
+  url: string;
+  prompt: string;
+  timestamp: string;
+  aspectRatio: string;
 }
 
-const presets: PresetGradient[] = [
-  { name: "উজ্জ্বল সূর্যমুখী", start: "#fff7ed", end: "#fed7aa", text: "#431407", accent: "#ea580c" },
-  { name: "অভিজাত গোধূলি", start: "#1e1b4b", end: "#311042", text: "#ffffff", accent: "#fbbf24" },
-  { name: "সবুজ প্রকৃতি", start: "#f0fdf4", end: "#bbf7d0", text: "#14532d", accent: "#16a34a" },
-  { name: "শান্ত সমুদ্র", start: "#ecfeff", end: "#cffafe", text: "#083344", accent: "#0d9488" },
-  { name: "রাজকীয় সিঁদুর", start: "#fef2f2", end: "#fee2e2", text: "#7f1d1d", accent: "#dc2626" },
-  { name: "কসমিক ব্লু", start: "#0f172a", end: "#1e293b", text: "#f8fafc", accent: "#38bdf8" },
-];
-
-export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event, language }) => {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+export const PosterGenerator: React.FC<PosterGeneratorProps> = ({ event, language, user, onGoogleLogin }) => {
+  // 1. Image Generation Controls State
+  const [prompt, setPrompt] = useState<string>("");
+  const [aspectRatio, setAspectRatio] = useState<"1:1" | "16:9" | "9:16" | "4:3">("1:1");
+  const [selectedStyle, setSelectedStyle] = useState<string>("festive");
   
-  // States
-  const [aspectRatio, setAspectRatio] = useState<"1:1" | "16:9" | "9:16">("1:1");
-  const [selectedPreset, setSelectedPreset] = useState<PresetGradient>(presets[1]);
-  const [customStart, setCustomStart] = useState(presets[1].start);
-  const [customEnd, setCustomEnd] = useState(presets[1].end);
-  const [customTextCol, setCustomTextCol] = useState(presets[1].text);
-  const [customAccent, setCustomAccent] = useState(presets[1].accent);
-
-  const [posterTitle, setPosterTitle] = useState("");
-  const [posterQuote, setPosterQuote] = useState("");
-  const [signature, setSignature] = useState("");
+  // 2. Execution & Output States
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [statusText, setStatusText] = useState<string>("");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [activeImage, setActiveImage] = useState<string | null>(null);
   
-  const [isAiLoading, setIsAiLoading] = useState(false);
-  const [aiMessage, setAiMessage] = useState("");
+  // 3. Session History / Gallery
+  const [gallery, setGallery] = useState<GeneratedImageItem[]>([]);
 
-  // Sync state with selected event
+  // Sync prompt with selected event automatically
   useEffect(() => {
     if (event) {
-      setPosterTitle(getEventTitle(event, language));
-      const wishes = getEventWishes(event, language);
-      setPosterQuote(wishes[0] || "");
+      const title = getEventTitle(event, language);
+      const desc = getEventDescription(event, language);
       
-      // Select appropriate theme based on category
-      let matchedPreset = presets[1]; // default twilight
+      let styleHint = "cultural festive artwork with decorative lighting and traditional elements";
       if (event.category === "poet" || event.category === "writer") {
-        matchedPreset = presets[0]; // warm sunflower
-      } else if (event.category === "west_bengal" || event.category === "international") {
-        matchedPreset = presets[3]; // ocean/teal
+        styleHint = "artistic portrait style with book, pen, literary aesthetic and warm ambient background";
       } else if (event.category === "freedom_fighter" || event.category === "national") {
-        matchedPreset = presets[4]; // vermilion/red accent
+        styleHint = "patriotic Indian celebration poster with tricolor saffron white green accents and majestic dignity";
+      } else if (event.category === "west_bengal") {
+        styleHint = "traditional Bengali celebration poster with delicate Alpona floor patterns, marigold flowers, and cultural motifs";
       } else if (event.category === "religious") {
-        matchedPreset = presets[1]; // royal deep
+        styleHint = "glowing spiritual festival artwork with diyas, oil lamps, floral decorations, and auspicious atmosphere";
       }
-      
-      setSelectedPreset(matchedPreset);
-      setCustomStart(matchedPreset.start);
-      setCustomEnd(matchedPreset.end);
-      setCustomTextCol(matchedPreset.text);
-      setCustomAccent(matchedPreset.accent);
+
+      const generatedPrompt = `High quality festival greeting poster for "${title}". Description: ${desc}. Style: ${styleHint}. Vibrant colors, highly detailed, artistic 8k resolution.`;
+      setPrompt(generatedPrompt);
     } else {
-      setPosterTitle(t("appTitle", language));
-      setPosterQuote(t("tipText", language));
+      setPrompt("A vibrant cultural celebration poster with marigold flowers, traditional Bengali Alpona artwork, oil lamps, and festive decorations, highly detailed 8k.");
     }
   }, [event, language]);
 
-  // Handle Preset Change
-  const handlePresetSelect = (preset: PresetGradient) => {
-    setSelectedPreset(preset);
-    setCustomStart(preset.start);
-    setCustomEnd(preset.end);
-    setCustomTextCol(preset.text);
-    setCustomAccent(preset.accent);
+  // Helper to append style keywords to prompt
+  const buildFullPrompt = () => {
+    let styleSuffix = "";
+    switch (selectedStyle) {
+      case "festive":
+        styleSuffix = ", festive decorations, marigold garlands, warm lighting, celebratory mood, vibrant colors";
+        break;
+      case "bengali_alpona":
+        styleSuffix = ", traditional Bengali Alpona folk art, intricate white mandala patterns, cultural terracotta heritage";
+        break;
+      case "digital_art":
+        styleSuffix = ", digital illustration, clean vector aesthetic, smooth gradient lighting, ultra high definition";
+        break;
+      case "photorealistic":
+        styleSuffix = ", hyperrealistic photograph, professional studio photography, cinematic lighting, 8k resolution";
+        break;
+      case "watercolor":
+        styleSuffix = ", soft watercolor painting, artistic brush strokes, pastel aesthetic, dreamlike background";
+        break;
+      case "minimalist":
+        styleSuffix = ", minimalist poster design, elegant negative space, clean typography focus, modern color palette";
+        break;
+      default:
+        styleSuffix = ", festive artwork, high quality";
+    }
+    return `${prompt}${styleSuffix}`;
   };
 
-  // Helper to wrap text for canvas
-  const wrapText = (
-    ctx: CanvasRenderingContext2D,
-    text: string,
-    x: number,
-    y: number,
-    maxWidth: number,
-    lineHeight: number
-  ) => {
-    const words = text.split(""); // Split by characters for Bengali compatibility
-    let line = "";
-    let lines: string[] = [];
-
-    // Let's split by spaces first, then check if words are too long
-    const spaceWords = text.split(" ");
-    for (let n = 0; n < spaceWords.length; n++) {
-      let testLine = line + spaceWords[n] + " ";
-      let metrics = ctx.measureText(testLine);
-      let testWidth = metrics.width;
-      if (testWidth > maxWidth && n > 0) {
-        lines.push(line.trim());
-        line = spaceWords[n] + " ";
+  // AI Image Generation Execution
+  const handleGenerateImage = async () => {
+    // If user is not logged in, initiate Google Login immediately
+    if (!user) {
+      if (onGoogleLogin) {
+        onGoogleLogin();
       } else {
-        line = testLine;
+        setErrorMessage(
+          language === "bn" 
+            ? "ছবি তৈরি করতে অনুগ্রহ করে গুগল দিয়ে লগইন করুন।" 
+            : language === "hi" 
+              ? "चित्र बनाने के लिए कृपया गूगल से लॉगिन करें।" 
+              : "Please login with Google to generate images."
+        );
       }
-    }
-    lines.push(line.trim());
-
-    // Draw the wrapped lines
-    for (let i = 0; i < lines.length; i++) {
-      ctx.fillText(lines[i], x, y + i * lineHeight);
-    }
-    return lines.length * lineHeight;
-  };
-
-  // Render Poster to Canvas
-  const drawPoster = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    // Set canvas dimensions based on aspect ratio
-    let width = 1080;
-    let height = 1080;
-
-    if (aspectRatio === "16:9") {
-      width = 1200;
-      height = 630;
-    } else if (aspectRatio === "9:16") {
-      width = 1080;
-      height = 1920;
+      return;
     }
 
-    canvas.width = width;
-    canvas.height = height;
+    if (!prompt.trim()) {
+      setErrorMessage(
+        language === "bn" 
+          ? "অনুগ্রহ করে ছবির বিবরণ বা প্রম্পট লিখুন।" 
+          : language === "hi" 
+            ? "कृपया छवि का विवरण दर्ज करें।" 
+            : "Please enter an image description."
+      );
+      return;
+    }
 
-    // 1. Draw Background Gradient
-    const gradient = ctx.createLinearGradient(0, 0, width, height);
-    gradient.addColorStop(0, customStart);
-    gradient.addColorStop(1, customEnd);
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, width, height);
+    setIsGenerating(true);
+    setErrorMessage(null);
+    setStatusText(
+      language === "bn" 
+        ? "Gemini AI-তে কানেক্ট হচ্ছে..." 
+        : language === "hi" 
+          ? "Gemini AI से कनेक्ट हो रहा है..." 
+          : "Connecting to Gemini AI..."
+    );
 
-    // 2. Draw Decorative Borders
-    ctx.strokeStyle = customAccent;
-    ctx.lineWidth = width * 0.015; // responsive border
-    ctx.strokeRect(width * 0.03, width * 0.03, width - width * 0.06, height - width * 0.06);
+    const fullPrompt = buildFullPrompt();
 
-    // Subtle inner border
-    ctx.strokeStyle = customTextCol;
-    ctx.globalAlpha = 0.2;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(width * 0.04, width * 0.04, width - width * 0.08, height - width * 0.08);
-    ctx.globalAlpha = 1.0;
+    try {
+      setStatusText(
+        language === "bn" 
+          ? "Gemini AI সার্ভিসেসের মাধ্যমে ছবি রেন্ডার করা হচ্ছে..." 
+          : language === "hi" 
+            ? "Gemini AI सेवाओं के माध्यम से चित्र रेंडर किया जा रहा है..." 
+            : "Rendering image via Gemini AI service..."
+      );
 
-    // Decorative corner accents (Traditional Bengali Alpona style corners)
-    const drawCornerAccent = (cx: number, cy: number, rx: number, ry: number) => {
-      ctx.save();
-      ctx.strokeStyle = customAccent;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(cx, cy, rx, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
-    };
+      const proxyRes = await fetch("/api/gemini/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: fullPrompt,
+          userUid: user.uid,
+          aspectRatio: aspectRatio,
+          style: selectedStyle
+        })
+      });
 
-    // Draw standard elegant overlay shapes
-    ctx.save();
-    ctx.fillStyle = customAccent;
-    ctx.globalAlpha = 0.08;
-    ctx.beginPath();
-    ctx.arc(width * 0.1, height * 0.1, width * 0.3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(width * 0.9, height * 0.9, width * 0.4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+      let imageUrlResult: string | null = null;
 
-    // 3. Write App Branding Header
-    ctx.textAlign = "center";
-    ctx.fillStyle = customAccent;
-    ctx.font = `bold ${width * 0.02}px sans-serif`;
-    ctx.fillText("📅 বিশেষ দিন ক্যালেন্ডার", width / 2, height * 0.08);
+      if (proxyRes.ok) {
+        const proxyData = await proxyRes.json();
+        if (proxyData.imageUrl) {
+          imageUrlResult = proxyData.imageUrl;
+        }
+      } else {
+        const errData = await proxyRes.json();
+        throw new Error(errData.details || errData.error || "Image generation failed");
+      }
 
-    // 4. Draw Title
-    ctx.fillStyle = customTextCol;
-    ctx.font = `bold ${width * 0.055}px system-ui, -apple-system, sans-serif`;
-    const titleY = height * 0.25;
-    ctx.fillText(posterTitle, width / 2, titleY);
+      if (imageUrlResult) {
+        setActiveImage(imageUrlResult);
+        
+        // Add to history gallery
+        const newItem: GeneratedImageItem = {
+          id: Date.now().toString(),
+          url: imageUrlResult,
+          prompt: fullPrompt,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          aspectRatio: aspectRatio
+        };
+        setGallery((prev) => [newItem, ...prev.slice(0, 9)]);
+      } else {
+        throw new Error("Gemini AI did not return image data. Please try again.");
+      }
 
-    // Divider line below title
-    ctx.strokeStyle = customAccent;
-    ctx.lineWidth = width * 0.005;
-    ctx.beginPath();
-    ctx.moveTo(width * 0.4, titleY + width * 0.03);
-    ctx.lineTo(width * 0.6, titleY + width * 0.03);
-    ctx.stroke();
-
-    // 5. Draw Quote / Wish content (Large & Central)
-    ctx.fillStyle = customTextCol;
-    ctx.globalAlpha = 0.9;
-    ctx.font = `italic ${width * 0.035}px Georgia, serif, system-ui`;
-    
-    const quoteY = height * 0.45;
-    const maxQuoteWidth = width * 0.8;
-    const lineHeight = width * 0.055;
-    wrapText(ctx, posterQuote, width / 2, quoteY, maxQuoteWidth, lineHeight);
-    ctx.globalAlpha = 1.0;
-
-    // 6. Signature (Bottom-center)
-    if (signature.trim()) {
-      ctx.fillStyle = customAccent;
-      ctx.font = `bold ${width * 0.03}px sans-serif`;
-      const sigText = `শুভকামনায়: ${signature}`;
-      ctx.fillText(sigText, width / 2, height * 0.85);
-    } else {
-      ctx.fillStyle = customTextCol;
-      ctx.globalAlpha = 0.5;
-      ctx.font = `${width * 0.022}px sans-serif`;
-      ctx.fillText("www.SpecialDayCalendar.in", width / 2, height * 0.88);
-      ctx.globalAlpha = 1.0;
+    } catch (err: any) {
+      console.error("Gemini AI Image Generation Error:", err);
+      setErrorMessage(
+        err.message || (
+          language === "bn" 
+            ? "ছবি তৈরিতে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।" 
+            : language === "hi" 
+              ? "चित्र बनाने में समस्या हुई। कृपया पुनः प्रयास करें।" 
+              : "Failed to generate image. Please try again."
+        )
+      );
+    } finally {
+      setIsGenerating(false);
+      setStatusText("");
     }
   };
 
-  // Redraw when properties change
-  useEffect(() => {
-    drawPoster();
-  }, [aspectRatio, customStart, customEnd, customTextCol, customAccent, posterTitle, posterQuote, signature]);
-
-  // Download logic
-  const handleDownload = (format: "png" | "jpg") => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const mimeType = format === "png" ? "image/png" : "image/jpeg";
-    const dataUrl = canvas.toDataURL(mimeType, 1.0);
+  // Download Generated Image
+  const handleDownloadImage = (format: "png" | "jpg") => {
+    if (!activeImage) return;
     const link = document.createElement("a");
-    link.download = `special_day_poster_${event?.id || "custom"}.${format}`;
-    link.href = dataUrl;
+    link.href = activeImage;
+    link.download = `gemini_ai_image_${event?.id || "custom"}_${Date.now()}.${format}`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  // AI Design Concept Generation
-  const generateAiConcept = async () => {
-    if (!event) return;
-    setIsAiLoading(true);
-    setAiMessage(language === "en" ? "Gemini is designing your poster..." : language === "hi" ? "Gemini आपका पोस्टर डिजाइन कर रहा है..." : "Gemini আপনার পোস্টার ডিজাইন করছে...");
-    try {
-      const response = await fetch("/api/gemini/generate-poster-concept", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventTitle: getEventTitle(event, language) }),
-      });
-      if (!response.ok) throw new Error("AI request failed");
-      const data = await response.json();
-      
-      // Set concept properties
-      const quote = language === "en" ? data.quoteEn : language === "hi" ? data.quoteHi : data.quoteBn;
-      if (quote) setPosterQuote(quote);
-      if (data.bgStartColor) setCustomStart(data.bgStartColor);
-      if (data.bgEndColor) setCustomEnd(data.bgEndColor);
-      if (data.textColor) setCustomTextCol(data.textColor);
-      if (data.accentColor) setCustomAccent(data.accentColor);
-      
-      setAiMessage(language === "en" ? "Gemini updated the poster successfully! ✨" : language === "hi" ? "Gemini ने सफलतापूर्वक पोस्टर अपडेट किया! ✨" : "Gemini সফলভাবে পোস্টার আপডেট করেছে! ✨");
-      setTimeout(() => setAiMessage(""), 4000);
-    } catch (e: any) {
-      console.error(e);
-      setAiMessage(language === "en" ? "Failed to load design. Please try again." : language === "hi" ? "डिजाइन लोड करने में विफल। कृपया पुन: प्रयास करें।" : "ডিজাইন লোড করতে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।");
-    } finally {
-      setIsAiLoading(false);
-    }
+  // Copy Image Data / URL
+  const handleCopyImageLink = () => {
+    if (!activeImage) return;
+    navigator.clipboard.writeText(activeImage);
+    alert(
+      language === "bn" 
+        ? "ইমেজ ডেটা ক্লিপবোর্ডে কপি করা হয়েছে!" 
+        : language === "hi" 
+          ? "इमेज डेटा क्लिपबोर्ड पर कॉपी हो गया!" 
+          : "Image data copied to clipboard!"
+    );
   };
 
   return (
-    <div id="ai-poster-card" className="bg-white rounded-3xl border border-natural-border shadow-sm p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div id="direct-ai-image-generator" className="bg-white rounded-3xl border border-natural-border shadow-sm p-5 md:p-6 flex flex-col gap-6">
+      
+      {/* 1. Component Header & Auth Status */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-natural-border/60 pb-4">
         <div>
-          <h2 id="poster-sec-title" className="text-xl font-bold text-natural-heading flex items-center gap-2">
-            {t("posterMakerTitle", language)}
+          <h2 id="ai-generator-title" className="text-lg sm:text-xl font-bold text-natural-heading flex items-center gap-2">
+            <span>🖼️</span>
+            <span>{t("posterMakerTitle", language)}</span>
           </h2>
-          <p className="text-xs text-natural-text/70">{t("posterMakerSub", language)}</p>
+          <p className="text-xs text-natural-text/70 mt-0.5">
+            {t("posterMakerSub", language)}
+          </p>
         </div>
 
-        {event && (
-          <button
-            id="ai-concept-btn"
-            disabled={isAiLoading}
-            onClick={generateAiConcept}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-natural-accent to-natural-primary text-white rounded-xl text-xs font-semibold shadow-sm transition-all cursor-pointer disabled:opacity-50"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            {isAiLoading ? (language === "en" ? "Designing..." : language === "hi" ? "बना रहा है..." : "তৈরি হচ্ছে...") : (language === "en" ? "AI Design" : language === "hi" ? "AI डिजाइन" : "AI ডিজাইন করুন")}
-          </button>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {user ? (
+            <div className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="font-bold truncate max-w-[160px] sm:max-w-[200px]">
+                {user.displayName || user.email}
+              </span>
+              <span className="text-[10px] text-emerald-700 font-normal">
+                ({language === "bn" ? "কানেক্টেড" : "Google Connected"})
+              </span>
+            </div>
+          ) : (
+            onGoogleLogin && (
+              <button
+                onClick={onGoogleLogin}
+                className="px-3.5 py-1.5 bg-natural-primary hover:bg-natural-primary/90 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs flex items-center gap-1.5"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>
+                  {language === "bn" 
+                    ? "ছবি তৈরি করতে লগইন করুন" 
+                    : language === "hi" 
+                      ? "चित्र बनाने के लिए लॉगिन करें" 
+                      : "Login to Generate Image"}
+                </span>
+              </button>
+            )
+          )}
+        </div>
       </div>
 
-      {aiMessage && (
-        <div className="mb-4 p-3 bg-natural-aside/80 text-natural-heading border border-natural-border rounded-xl text-xs font-medium animate-pulse">
-          {aiMessage}
+      {/* 2. Login Prompt Banner if not logged in */}
+      {!user && (
+        <div className="p-4 bg-amber-50/80 border border-amber-200/90 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fadeIn">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 text-amber-700">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-amber-900">
+                {language === "bn" 
+                  ? "ছবি তৈরি করতে গুগল লগইন আবশ্যক (Login to Generate Image)" 
+                  : language === "hi" 
+                    ? "चित्र बनाने के लिए गूगल लॉगिन आवश्यक (Login to Generate Image)" 
+                    : "Google Login Required to Generate Image"}
+              </h3>
+              <p className="text-[11px] text-amber-800/80 mt-0.5">
+                {language === "bn"
+                  ? "হাই-কোয়ালিটি AI ছবি ফ্রিতে তৈরি করতে আপনার গুগল অ্যাকাউন্ট দিয়ে লগইন করুন।"
+                  : language === "hi"
+                    ? "उच्च गुणवत्ता वाले AI चित्र मुफ्त में बनाने के लिए अपने गूगल खाते से लॉगिन करें।"
+                    : "Login with your Google account to generate high-quality AI images for free."}
+              </p>
+            </div>
+          </div>
+
+          {onGoogleLogin && (
+            <button
+              onClick={onGoogleLogin}
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 shadow-xs flex items-center justify-center gap-1.5"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>
+                {language === "bn" ? "গুগল দিয়ে লগইন করুন" : language === "hi" ? "गूगल से लॉगिन करें" : "Login with Google"}
+              </span>
+            </button>
+          )}
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Canvas Display */}
-        <div className="lg:col-span-7 flex flex-col items-center justify-center bg-natural-aside/10 rounded-2xl p-4 border border-natural-border relative group">
-          <canvas
-            ref={canvasRef}
-            className="max-w-full rounded-xl shadow-lg border border-natural-border/40 bg-white"
-            style={{ 
-              maxHeight: "450px", 
-              objectFit: "contain",
-              aspectRatio: aspectRatio === "1:1" ? "1/1" : aspectRatio === "16:9" ? "16/9" : "9/16"
-            }}
-          />
-          <div className="mt-3 text-natural-text/50 text-xs flex items-center gap-1">
-            <Maximize2 className="w-3 h-3 text-natural-accent" />
-            <span>{language === "en" ? "Super HD 1080p download preview" : language === "hi" ? "सुपर एचडी 1080p डाउनलोड पूर्वावलोकन" : "সুপার হাই-ডেফিনিশন ১০৮০p ডাউনলোড প্রিভিউ"}</span>
+      {/* 3. Error Banner */}
+      {errorMessage && (
+        <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl text-xs font-medium flex items-start gap-2.5">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+          <div className="flex-grow">
+            <p>{errorMessage}</p>
           </div>
         </div>
+      )}
 
-        {/* Controls Grid */}
-        <div className="lg:col-span-5 flex flex-col gap-5">
-          {/* Size Selectors */}
+      {/* 4. Controls & Input Area */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* Left Column: Image Prompt & Controls */}
+        <div className="lg:col-span-6 flex flex-col gap-4">
+          
+          {/* Prompt Box */}
           <div>
-            <label className="text-xs font-bold text-natural-text/60 uppercase tracking-wider mb-2 block">
-              {t("aspectRatioLabel", language)}
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                id="ratio-1-1"
-                onClick={() => setAspectRatio("1:1")}
-                className={`py-2 px-3 border rounded-xl text-xs font-semibold flex flex-col items-center gap-1 transition-all cursor-pointer ${
-                  aspectRatio === "1:1"
-                    ? "border-natural-accent bg-natural-accent/10 text-natural-heading font-bold"
-                    : "border-natural-border text-natural-text hover:bg-natural-aside/40"
-                }`}
-              >
-                <span className="w-4 h-4 border border-current rounded-sm" />
-                <span>{t("square", language)}</span>
-              </button>
-              <button
-                id="ratio-16-9"
-                onClick={() => setAspectRatio("16:9")}
-                className={`py-2 px-3 border rounded-xl text-xs font-semibold flex flex-col items-center gap-1 transition-all cursor-pointer ${
-                  aspectRatio === "16:9"
-                    ? "border-natural-accent bg-natural-accent/10 text-natural-heading font-bold"
-                    : "border-natural-border text-natural-text hover:bg-natural-aside/40"
-                }`}
-              >
-                <span className="w-5 h-3 border border-current rounded-sm" />
-                <span>{t("banner", language)}</span>
-              </button>
-              <button
-                id="ratio-9-16"
-                onClick={() => setAspectRatio("9:16")}
-                className={`py-2 px-3 border rounded-xl text-xs font-semibold flex flex-col items-center gap-1 transition-all cursor-pointer ${
-                  aspectRatio === "9:16"
-                    ? "border-natural-accent bg-natural-accent/10 text-natural-heading font-bold"
-                    : "border-natural-border text-natural-text hover:bg-natural-aside/40"
-                }`}
-              >
-                <span className="w-3 h-5 border border-current rounded-sm" />
-                <span>{t("status", language)}</span>
-              </button>
-            </div>
-          </div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-bold text-natural-text/60 uppercase tracking-wider flex items-center gap-1">
+                <Wand2 className="w-3.5 h-3.5 text-natural-accent" />
+                <span>{language === "bn" ? "ছবি বিবরণ (AI Prompt)" : language === "hi" ? "चित्र विवरण (AI Prompt)" : "Image Description Prompt"}</span>
+              </label>
 
-          {/* Background Gradients Preset */}
-          <div>
-            <label className="text-xs font-bold text-natural-text/60 uppercase tracking-wider mb-2 block">
-              {t("selectTheme", language)}
-            </label>
-            <div className="grid grid-cols-3 gap-1.5">
-              {presets.map((preset, index) => {
-                const isSelected = selectedPreset.name === preset.name;
-                return (
-                  <button
-                    key={index}
-                    onClick={() => handlePresetSelect(preset)}
-                    className={`h-9 rounded-lg border text-[11px] font-medium flex items-center justify-between px-2 relative transition-all cursor-pointer ${
-                      isSelected ? "border-natural-heading ring-2 ring-natural-accent" : "border-natural-border"
-                    }`}
-                    style={{ background: `linear-gradient(135deg, ${preset.start}, ${preset.end})` }}
-                  >
-                    <span style={{ color: preset.text }}>আভা</span>
-                    {isSelected && (
-                      <Check className="w-3 h-3 text-white absolute right-1 drop-shadow-sm" />
-                    )}
-                  </button>
-                );
-              })}
+              {event && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const title = getEventTitle(event, language);
+                    const desc = getEventDescription(event, language);
+                    setPrompt(`Festival celebration poster for "${title}". ${desc}. Detailed 8k resolution, vibrant traditional motifs.`);
+                  }}
+                  className="text-[10px] font-bold text-natural-accent hover:underline"
+                >
+                  {language === "bn" ? "✨ ইভেন্ট বিবরণ রিসেট" : "✨ Reset to Event"}
+                </button>
+              )}
             </div>
 
-            {/* Custom Color Picker Toggle */}
-            <div className="mt-3 flex gap-2">
-              <div className="flex-1">
-                <span className="text-[10px] text-natural-text/50 block mb-1">{language === "en" ? "Start Color" : language === "hi" ? "प्रारंभ रंग" : "স্টার্ট রঙ"}</span>
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="color"
-                    value={customStart}
-                    onChange={(e) => setCustomStart(e.target.value)}
-                    className="w-6 h-6 rounded cursor-pointer border border-natural-border"
-                  />
-                  <span className="text-xs font-mono">{customStart}</span>
-                </div>
-              </div>
-              <div className="flex-1">
-                <span className="text-[10px] text-natural-text/50 block mb-1">{language === "en" ? "End Color" : language === "hi" ? "अंतिम रंग" : "এন্ড রঙ"}</span>
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="color"
-                    value={customEnd}
-                    onChange={(e) => setCustomEnd(e.target.value)}
-                    className="w-6 h-6 rounded cursor-pointer border border-natural-border"
-                  />
-                  <span className="text-xs font-mono">{customEnd}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Text Controls */}
-          <div>
-            <label className="text-xs font-bold text-natural-text/60 uppercase tracking-wider mb-2 block">
-              {language === "en" ? "Edit Text & Greeting" : language === "hi" ? "टेक्स्ट और शुभकामनाएं बदलें" : "লেখা ও শুভেচ্ছা এডিট করুন"}
-            </label>
-            <div className="flex flex-col gap-2">
-              <input
-                id="edit-poster-title"
-                type="text"
-                value={posterTitle}
-                onChange={(e) => setPosterTitle(e.target.value)}
-                placeholder="টাইটেল লিখুন"
-                className="w-full px-3 py-2 border border-natural-border bg-white text-natural-text rounded-xl text-xs focus:ring-1 focus:ring-natural-accent outline-none"
-              />
-              <textarea
-                id="edit-poster-quote"
-                value={posterQuote}
-                onChange={(e) => setPosterQuote(e.target.value)}
-                placeholder="শুভেচ্ছা বার্তা বা উদ্ধৃতি লিখুন"
-                rows={3}
-                className="w-full px-3 py-2 border border-natural-border bg-white text-natural-text rounded-xl text-xs focus:ring-1 focus:ring-natural-accent outline-none resize-none"
-              />
-            </div>
-          </div>
-
-          {/* Signature Name */}
-          <div>
-            <label className="text-xs font-bold text-natural-text/60 uppercase tracking-wider mb-2 block flex items-center gap-1">
-              <User className="w-3 h-3 text-natural-text/50" />
-              <span>{language === "en" ? "Your Name (Signature)" : language === "hi" ? "आपका नाम (हस्ताक्षर)" : "আপনার নাম দিন (সিগনেচার)"}</span>
-            </label>
-            <input
-              id="edit-poster-signature"
-              type="text"
-              value={signature}
-              onChange={(e) => setSignature(e.target.value)}
-              placeholder={t("yourNamePlaceholder", language)}
-              className="w-full px-3 py-2 border border-natural-border bg-white text-natural-text rounded-xl text-xs focus:ring-1 focus:ring-natural-accent outline-none"
+            <textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              rows={4}
+              placeholder={language === "bn" ? "এখানে আপনার ছবির বিবরণ লিখুন..." : "Describe the image you want to generate..."}
+              className="w-full p-3 bg-white border border-natural-border rounded-2xl text-xs text-natural-text focus:ring-1 focus:ring-natural-accent outline-none resize-none leading-relaxed"
             />
           </div>
 
-          {/* Download buttons */}
-          <div className="mt-2 flex gap-2">
-            <button
-              id="dl-png"
-              onClick={() => handleDownload("png")}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-natural-primary hover:bg-natural-primary/90 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
-            >
-              <Download className="w-4 h-4" />
-              <span>{language === "en" ? "PNG Download" : language === "hi" ? "PNG डाउनलोड" : "PNG ডাউনলোড"}</span>
-            </button>
-            <button
-              id="dl-jpg"
-              onClick={() => handleDownload("jpg")}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-natural-accent hover:bg-natural-accent/90 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
-            >
-              <Download className="w-4 h-4" />
-              <span>{language === "en" ? "JPG Download" : language === "hi" ? "JPG डाउनलोड" : "JPG ডাউনলোড"}</span>
-            </button>
+          {/* Quick Style Chips */}
+          <div>
+            <label className="text-[11px] font-bold text-natural-text/60 uppercase tracking-wider mb-2 block">
+              {language === "bn" ? "আর্ট স্টাইল চয়ন করুন" : language === "hi" ? "कला शैली चुनें" : "Select Art Style"}
+            </label>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+              {[
+                { id: "festive", label: language === "bn" ? "🌺 উৎসবের সাজসজ্জা" : "🌺 Festive Decorative" },
+                { id: "bengali_alpona", label: language === "bn" ? "🪔 ঐতিহ্যবাহী আল্পনা" : "🪔 Traditional Alpona" },
+                { id: "digital_art", label: language === "bn" ? "🎨 ডিজিটাল আর্ট" : "🎨 Digital Art" },
+                { id: "photorealistic", label: language === "bn" ? "📸 রিয়েলিস্টিক ফটো" : "📸 Photorealistic" },
+                { id: "watercolor", label: language === "bn" ? "🖌️ জলরঙের চিত্র" : "🖌️ Watercolor" },
+                { id: "minimalist", label: language === "bn" ? "✨ মিনিমালিস্ট" : "✨ Minimalist" },
+              ].map((st) => (
+                <button
+                  key={st.id}
+                  type="button"
+                  onClick={() => setSelectedStyle(st.id)}
+                  className={`py-1.5 px-2.5 rounded-xl text-[11px] font-semibold border text-center transition-all cursor-pointer ${
+                    selectedStyle === st.id
+                      ? "bg-natural-accent/15 border-natural-accent text-natural-heading font-bold shadow-xs"
+                      : "bg-white border-natural-border text-natural-text hover:bg-natural-aside/40"
+                  }`}
+                >
+                  {st.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Aspect Ratio Selector */}
+          <div>
+            <label className="text-[11px] font-bold text-natural-text/60 uppercase tracking-wider mb-2 block">
+              {t("aspectRatioLabel", language)}
+            </label>
+
+            <div className="grid grid-cols-4 gap-2">
+              {[
+                { id: "1:1", label: t("square", language), iconWidth: "w-3.5 h-3.5" },
+                { id: "16:9", label: t("banner", language), iconWidth: "w-4 h-2.5" },
+                { id: "9:16", label: t("status", language), iconWidth: "w-2.5 h-4" },
+                { id: "4:3", label: language === "bn" ? "ল্যান্ডস্কেপ" : "Landscape", iconWidth: "w-4 h-3" }
+              ].map((ar) => (
+                <button
+                  key={ar.id}
+                  type="button"
+                  onClick={() => setAspectRatio(ar.id as any)}
+                  className={`py-2 px-2 rounded-xl text-[10px] font-bold border flex flex-col items-center gap-1 transition-all cursor-pointer ${
+                    aspectRatio === ar.id
+                      ? "bg-natural-accent/15 border-natural-accent text-natural-heading"
+                      : "bg-white border-natural-border text-natural-text hover:bg-natural-aside/40"
+                  }`}
+                >
+                  <span className={`${ar.iconWidth} border border-current rounded-xs`} />
+                  <span className="truncate">{ar.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Generate Button */}
+          <button
+            id="generate-ai-image-btn"
+            disabled={isGenerating}
+            onClick={handleGenerateImage}
+            className="w-full py-3.5 bg-gradient-to-r from-natural-accent via-natural-primary to-natural-heading text-white rounded-2xl text-xs font-bold shadow-md transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 hover:opacity-95"
+          >
+            {isGenerating ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>{language === "bn" ? "ছবি তৈরি হচ্ছে..." : "Generating Image..."}</span>
+              </>
+            ) : !user ? (
+              <>
+                <Sparkles className="w-4 h-4" />
+                <span>
+                  {language === "bn" 
+                    ? "🔑 ছবি তৈরি করতে লগইন করুন (Login to Generate Image)" 
+                    : language === "hi" 
+                      ? "🔑 चित्र बनाने के लिए लॉगिन करें (Login to Generate Image)" 
+                      : "🔑 Login to Generate Image"}
+                </span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" />
+                <span>{language === "bn" ? "✨ অরিজিনাল AI ছবি তৈরি করুন" : "✨ Generate Original AI Image"}</span>
+              </>
+            )}
+          </button>
+
+          {isGenerating && statusText && (
+            <p className="text-[11px] text-natural-accent font-medium text-center animate-pulse">
+              {statusText}
+            </p>
+          )}
+
+        </div>
+
+        {/* Right Column: Display Canvas & Generated Result */}
+        <div className="lg:col-span-6 flex flex-col items-center justify-center bg-natural-aside/20 rounded-3xl p-4 border border-natural-border/80 min-h-[340px] relative group">
+          
+          {activeImage ? (
+            <div className="flex flex-col items-center gap-4 w-full">
+              <div className="relative rounded-2xl overflow-hidden shadow-lg border border-natural-border/60 bg-white max-h-[380px] flex items-center justify-center">
+                <img
+                  src={activeImage}
+                  alt="Gemini AI Generated Poster"
+                  referrerPolicy="no-referrer"
+                  className="max-h-[380px] w-auto object-contain rounded-2xl"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center justify-center gap-2 w-full">
+                <button
+                  onClick={() => handleDownloadImage("png")}
+                  className="flex-1 min-w-[120px] py-2 px-3 bg-natural-primary hover:bg-natural-primary/90 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>PNG Download</span>
+                </button>
+
+                <button
+                  onClick={() => handleDownloadImage("jpg")}
+                  className="flex-1 min-w-[120px] py-2 px-3 bg-natural-accent hover:bg-natural-accent/90 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>JPG Download</span>
+                </button>
+
+                <button
+                  onClick={handleCopyImageLink}
+                  className="py-2 px-3 bg-white hover:bg-natural-aside/60 border border-natural-border text-natural-text rounded-xl text-xs font-bold flex items-center justify-center gap-1 cursor-pointer"
+                  title="Copy Image URL"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{language === "bn" ? "কপি" : "Copy"}</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center text-center p-6 text-natural-text/50">
+              <div className="w-16 h-16 rounded-full bg-natural-accent/10 flex items-center justify-center mb-3">
+                <ImageIcon className="w-8 h-8 text-natural-accent/60" />
+              </div>
+              <h4 className="text-sm font-bold text-natural-heading">
+                {language === "bn" ? "আপনার AI ছবি এখানে প্রদর্শিত হবে" : "Your AI Image will appear here"}
+              </h4>
+              <p className="text-xs max-w-xs mt-1 leading-relaxed text-natural-text/60">
+                {language === "bn"
+                  ? "প্রম্পট বেছে নিয়ে 'অরিজিনাল AI ছবি তৈরি করুন' বাটনে ক্লিক করুন।"
+                  : "Click 'Generate Original AI Image' to render a high definition custom poster."}
+              </p>
+            </div>
+          )}
+
+        </div>
+
+      </div>
+
+      {/* 5. Session Gallery History */}
+      {gallery.length > 0 && (
+        <div className="border-t border-natural-border/60 pt-4 mt-2">
+          <h4 className="text-xs font-bold text-natural-heading mb-3 flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-natural-accent" />
+            <span>{language === "bn" ? "সাম্প্রতিক জেনারেটেড ছবিসমূহ (Session Gallery)" : "Recent Generated Images (Session Gallery)"}</span>
+          </h4>
+
+          <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-thin">
+            {gallery.map((img) => (
+              <button
+                key={img.id}
+                onClick={() => setActiveImage(img.url)}
+                className={`relative shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
+                  activeImage === img.url ? "border-natural-accent ring-2 ring-natural-accent/30 shadow-md" : "border-natural-border/80 hover:opacity-90"
+                }`}
+              >
+                <img src={img.url} alt="Gallery item" className="w-full h-full object-cover" />
+                <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[8px] font-mono py-0.5 text-center">
+                  {img.timestamp}
+                </span>
+              </button>
+            ))}
           </div>
         </div>
-      </div>
+      )}
+
     </div>
   );
 };

@@ -1,4 +1,9 @@
 import { SpecialDayEvent } from "../types";
+import { poetEvents } from "./poetEvents";
+import { additionalNationalEvents } from "./additionalNationalEvents";
+import { scientistEvents } from "./scientistEvents";
+import { biplobiEvents } from "./biplobiEvents";
+import { moreIndiaEvents } from "./moreIndiaEvents";
 
 export const categoryMeta = {
   national: { labelBn: "জাতীয় দিবস", labelEn: "National Day", color: "bg-amber-50 text-amber-900 border-amber-200/60" },
@@ -359,5 +364,10 @@ export const defaultEvents: SpecialDayEvent[] = [
     waMessage: "মেরি ক্রিসমাস! 🎄✨ বড়দিনের এই পবিত্র উৎসবে আপনার ও আপনার পরিবারের সুখ, সমৃদ্ধি ও সুস্বাস্থ্য কামনা করি। 🎅🍰",
     xPost: "Wishing everyone a very #MerryChristmas! May this festive season bring joy, peace, and prosperity to all. 🎄🎁",
     hashtags: ["Christmas", "MerryChristmas", "HolidaySeason", "JesusChrist", "JoyToTheWorld"]
-  }
+  },
+  ...poetEvents,
+  ...additionalNationalEvents,
+  ...scientistEvents,
+  ...biplobiEvents,
+  ...moreIndiaEvents
 ];

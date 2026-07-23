@@ -197,14 +197,14 @@ export const uiTranslations = {
     hi: "ये शुभकामनाएं पूरी तरह से अनोखी हैं और विशेष रूप से इस दिन के लिए तैयार की गई हैं!"
   },
   posterMakerTitle: {
-    bn: "🎨 AI পোস্টার মেকার (Ready-made Images)",
-    en: "🎨 AI Poster Maker (Ready-made Images)",
-    hi: "🎨 AI पोस्टर निर्माता (Ready-made Images)"
+    bn: "🖼️ Gemini AI ইমেজ জেনারেটর",
+    en: "🖼️ Gemini AI Image Generator",
+    hi: "🖼️ Gemini AI इमेज जनरेटर"
   },
   posterMakerSub: {
-    bn: "আপনার নাম দিয়ে সোশ্যাল মিডিয়ার জন্য শুভেচ্ছা কার্ড তৈরি করুন",
-    en: "Create greeting cards with your name for social media",
-    hi: "सोशल मीडिया के लिए अपने नाम के साथ ग्रीटिंग कार्ड बनाएं"
+    bn: "বিশেষ দিনের জন্য অনন্য AI সোশ্যাল মিডিয়া পোস্টার ও গ্রাফিক্স তৈরি করুন",
+    en: "Create unique AI social media posters and graphics for special days",
+    hi: "विशेष दिनों के लिए अद्वितीय AI सोशल मीडिया पोस्टर और ग्राफिक्स बनाएं"
   },
   aspectRatioLabel: {
     bn: "সাইজ এবং ফর্ম্যাট (ASPECT RATIO)",

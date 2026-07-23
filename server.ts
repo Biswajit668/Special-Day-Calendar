@@ -72,49 +72,76 @@ app.post("/api/gemini/generate-wishes", async (req, res) => {
   }
 });
 
-// API: Generate Poster Design Concept & Custom Quote
-app.post("/api/gemini/generate-poster-concept", async (req, res) => {
+// API: Generate Direct AI Image via Imagen / Gemini
+app.post("/api/gemini/generate-image", async (req, res) => {
   try {
-    const { eventTitle } = req.body;
-    if (!eventTitle) {
-      return res.status(400).json({ error: "Event title is required" });
+    const { prompt, apiKey: clientApiKey, aspectRatio = "1:1", style = "festive" } = req.body;
+    if (!prompt) {
+      return res.status(400).json({ error: "Prompt is required" });
     }
 
-    const client = getGeminiClient();
-    const prompt = `
-      Create a stunning digital poster concept for the special day: "${eventTitle}".
-      Provide recommendations for visual elements to render on a canvas.
-      
-      You MUST respond ONLY with a JSON object containing the exact following keys:
-      - "quoteBn": A deep, meaningful, or spiritual quote related to the day in Bengali (max 100 characters).
-      - "quoteEn": Same quote translated or adapted in English (max 100 characters).
-      - "quoteHi": Same quote translated or adapted in Hindi (max 100 characters).
-      - "bgType": "gradient" or "solid" or "ambient"
-      - "bgStartColor": Hex code of a beautiful, premium starting color (e.g., "#1e1b4b" or "#fff7ed")
-      - "bgEndColor": Hex code of a beautiful ending color (e.g., "#311042" or "#fed7aa")
-      - "textColor": Hex code for the primary title text (e.g., "#ffffff" or "#431407")
-      - "accentColor": Hex code for highlight borders/decorations (e.g., "#f59e0b" or "#16a34a")
-      - "layoutStyle": "minimal", "festive", "technical", or "editorial"
-      - "decorations": A list of 2-3 visual design suggestions (e.g., "Mandalas at borders", "Golden lights", "Leaf patterns")
-      
-      Do not wrap in backticks. Return raw JSON.
-    `;
+    const apiKeyToUse = clientApiKey || process.env.GEMINI_API_KEY;
+    if (!apiKeyToUse) {
+      return res.status(401).json({ error: "Gemini API Key is required. Please enter your API key in the UI." });
+    }
 
-    const response = await client.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-      },
+    // Attempt Imagen 3 REST API call with provided API Key
+    const imagenUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKeyToUse}`;
+    
+    const response = await fetch(imagenUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        instances: [{ prompt }],
+        parameters: {
+          sampleCount: 1,
+          aspectRatio: aspectRatio,
+          outputMimeType: "image/png"
+        }
+      })
     });
 
-    const text = response.text || "{}";
-    const data = JSON.parse(text);
-    return res.json(data);
+    if (response.ok) {
+      const data = await response.json();
+      if (data.predictions && data.predictions[0]?.bytesBase64Encoded) {
+        const mime = data.predictions[0].mimeType || "image/png";
+        const imageUrl = `data:${mime};base64,${data.predictions[0].bytesBase64Encoded}`;
+        return res.json({ imageUrl, success: true });
+      }
+    }
+
+    // Fallback attempt: gemini-3.1-flash-lite-image or gemini-2.5-flash generateContent
+    const genaiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKeyToUse}`;
+    const genRes = await fetch(genaiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: `Generate a high quality visual image for: ${prompt}` }] }],
+        generationConfig: {
+          responseModalities: ["IMAGE", "TEXT"]
+        }
+      })
+    });
+
+    if (genRes.ok) {
+      const genData = await genRes.json();
+      const parts = genData.candidates?.[0]?.content?.parts || [];
+      for (const part of parts) {
+        if (part.inlineData && part.inlineData.data) {
+          const mime = part.inlineData.mimeType || "image/png";
+          const imageUrl = `data:${mime};base64,${part.inlineData.data}`;
+          return res.json({ imageUrl, success: true });
+        }
+      }
+    }
+
+    // If API responded with error message
+    const errText = await response.text();
+    return res.status(400).json({ error: "Image generation failed", details: errText });
   } catch (error: any) {
-    console.error("Gemini Poster Concept Error:", error);
+    console.error("Gemini Image Generation Error:", error);
     return res.status(500).json({ 
-      error: "Failed to generate poster concept", 
+      error: "Failed to generate image via Gemini AI", 
       details: error.message 
     });
   }
